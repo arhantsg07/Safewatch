@@ -15,6 +15,7 @@ import {
   Menu,
   X
 } from 'lucide-react';
+import Link from 'next/link';
 
 const CrimeReportingHomepage = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -44,9 +45,9 @@ const CrimeReportingHomepage = () => {
               <a href="#" className="text-white/80 hover:text-white transition-colors duration-200 font-medium">
                 Home
               </a>
-              <a href="#" className="text-white/80 hover:text-white transition-colors duration-200 font-medium">
+              <Link href="/report_crime" className="text-white/80 hover:text-white transition-colors duration-200 font-medium">
                 Crime Form
-              </a>
+              </Link>
               <a href="#" className="text-white/80 hover:text-white transition-colors duration-200 font-medium">
                 Dashboard
               </a>
@@ -79,9 +80,9 @@ const CrimeReportingHomepage = () => {
                 <a href="#" className="block text-white/80 hover:text-white transition-colors font-medium">
                   Home
                 </a>
-                <a href="#" className="block text-white/80 hover:text-white transition-colors font-medium">
+                <Link href="/report_crime" className="block text-white/80 hover:text-white transition-colors font-medium">
                   Crime Form
-                </a>
+                </Link>
                 <a href="#" className="block text-white/80 hover:text-white transition-colors font-medium">
                   Dashboard
                 </a>
@@ -122,10 +123,12 @@ const CrimeReportingHomepage = () => {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <button className="group bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white px-8 py-4 rounded-full font-semibold text-lg transition-all duration-200 transform hover:scale-105 shadow-2xl">
-                Report Crime Now
-                <ChevronRight className="inline-block ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-              </button>
+              <Link href="/report_crime">
+                <button className="group bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white px-8 py-4 rounded-full font-semibold text-lg transition-all duration-200 transform hover:scale-105 shadow-2xl">
+                  Report Crime Now
+                  <ChevronRight className="inline-block ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                </button>
+              </Link>
               <button className="group bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white px-8 py-4 rounded-full font-semibold text-lg transition-all duration-200">
                 View Live Map
                 <Map className="inline-block ml-2 h-5 w-5" />
@@ -230,10 +233,12 @@ const CrimeReportingHomepage = () => {
             <p className="text-gray-300 mb-6">
               Quickly and securely report crimes with our streamlined form designed for urgent situations.
             </p>
-            <button className="group text-indigo-300 hover:text-white font-medium flex items-center">
-              File Report
-              <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-            </button>
+            <Link href="/report_crime">
+              <button className="group text-indigo-300 hover:text-white font-medium flex items-center">
+                File Report
+                <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+              </button>
+            </Link>
           </div>
 
           {/* Emergency */}
@@ -245,10 +250,12 @@ const CrimeReportingHomepage = () => {
             <p className="text-gray-300 mb-6">
               Immediate emergency reporting with direct connection to local law enforcement agencies.
             </p>
+            <Link href="/emergency_alert">
             <button className="group text-red-300 hover:text-white font-medium flex items-center">
               Emergency Report
               <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </button>
+            </Link>
           </div>
         </div>
       </div>
