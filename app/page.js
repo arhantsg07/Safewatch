@@ -1,103 +1,322 @@
-import Image from "next/image";
+"use client"
+import React, { useState } from 'react';
+import { 
+  Shield, 
+  MapPin, 
+  BarChart3, 
+  FileText, 
+  Eye, 
+  Map,
+  Zap,
+  Users,
+  Clock,
+  AlertTriangle,
+  ChevronRight,
+  Menu,
+  X
+} from 'lucide-react';
 
-export default function Home() {
+const CrimeReportingHomepage = () => {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.js
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-cyan-900 to-slate-900">
+      {/* Navbar */}
+      <nav className="relative z-50 bg-black/20 backdrop-blur-xl border-b border-white/10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            {/* Logo */}
+            <div className="flex items-center space-x-2">
+              <div className="bg-gradient-to-r from-red-500 to-orange-500 p-2 rounded-lg">
+                <Shield className="h-6 w-6 text-white" />
+              </div>
+              <div className="text-xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                SafeWatch
+              </div>
+            </div>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center space-x-8">
+              <a href="#" className="text-white/80 hover:text-white transition-colors duration-200 font-medium">
+                Home
+              </a>
+              <a href="#" className="text-white/80 hover:text-white transition-colors duration-200 font-medium">
+                Crime Form
+              </a>
+              <a href="#" className="text-white/80 hover:text-white transition-colors duration-200 font-medium">
+                Dashboard
+              </a>
+              <a href="#" className="text-white/80 hover:text-white transition-colors duration-200 font-medium">
+                Reports
+              </a>
+              
+              <div className="flex items-center space-x-4">
+                <button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-2 rounded-full font-medium transition-all duration-200 transform hover:scale-105">
+                  Login
+                </button>
+              </div>
+            </div>
+
+            {/* Mobile menu button */}
+            <div className="md:hidden">
+              <button
+                onClick={toggleMobileMenu}
+                className="text-white p-2 rounded-lg hover:bg-white/10 transition-colors"
+              >
+                {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Mobile Navigation */}
+          {isMobileMenuOpen && (
+            <div className="md:hidden absolute top-16 left-0 right-0 bg-black/95 backdrop-blur-xl border-b border-white/10">
+              <div className="px-4 py-6 space-y-4">
+                <a href="#" className="block text-white/80 hover:text-white transition-colors font-medium">
+                  Home
+                </a>
+                <a href="#" className="block text-white/80 hover:text-white transition-colors font-medium">
+                  Crime Form
+                </a>
+                <a href="#" className="block text-white/80 hover:text-white transition-colors font-medium">
+                  Dashboard
+                </a>
+                <a href="#" className="block text-white/80 hover:text-white transition-colors font-medium">
+                  Reports
+                </a>
+                <button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-full font-medium">
+                  Login
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+      </nav>
+
+      {/* Hero Section */}
+      <div className="relative overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16">
+          <div className="text-center">
+            <div className="inline-flex items-center bg-red-500/10 border border-red-500/20 rounded-full px-4 py-2 mb-8">
+              <Zap className="h-4 w-4 text-red-400 mr-2" />
+              <span className="text-red-300 text-sm font-medium">Real-Time Crime Reporting</span>
+            </div>
+            
+            <h1 className="text-5xl md:text-7xl font-bold mb-6">
+              <span className="bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent">
+                Stay Safe,
+              </span>
+              <br />
+              <span className="bg-gradient-to-r from-red-400 via-orange-400 to-yellow-400 bg-clip-text text-transparent">
+                Stay Informed
+              </span>
+            </h1>
+            
+            <p className="text-xl text-gray-300 mb-12 max-w-3xl mx-auto leading-relaxed">
+              Report crimes instantly, track incidents in real-time, and help build safer communities 
+              through our advanced crime mapping and reporting platform.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <button className="group bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white px-8 py-4 rounded-full font-semibold text-lg transition-all duration-200 transform hover:scale-105 shadow-2xl">
+                Report Crime Now
+                <ChevronRight className="inline-block ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+              </button>
+              <button className="group bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white px-8 py-4 rounded-full font-semibold text-lg transition-all duration-200">
+                View Live Map
+                <Map className="inline-block ml-2 h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-20">
+              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6">
+                <div className="text-3xl font-bold text-white">24/7</div>
+                <div className="text-gray-400">Real-Time Monitoring</div>
+              </div>
+              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6">
+                <div className="text-3xl font-bold text-white">15,847</div>
+                <div className="text-gray-400">Reports Processed</div>
+              </div>
+              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6">
+                <div className="text-3xl font-bold text-white">98%</div>
+                <div className="text-gray-400">Response Rate</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Feature Cards */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+        <div className="text-center mb-16">
+          <h2 className="text-4xl font-bold text-white mb-4">Platform Features</h2>
+          <p className="text-gray-400 text-lg max-w-2xl mx-auto">
+            Access powerful tools designed to enhance community safety and crime prevention
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {/* Heatmap */}
+          <div className="group bg-gradient-to-br from-purple-900/50 to-pink-900/50 backdrop-blur-sm border border-purple-500/20 rounded-2xl p-8 hover:border-purple-500/40 transition-all duration-300 transform hover:-translate-y-2">
+            <div className="bg-gradient-to-r from-purple-500 to-pink-500 p-3 rounded-xl w-fit mb-6">
+              <Map className="h-8 w-8 text-white" />
+            </div>
+            <h3 className="text-2xl font-bold text-white mb-4">Crime Heatmap</h3>
+            <p className="text-gray-300 mb-6">
+              Visualize crime patterns and hotspots with our interactive heatmap powered by real-time data.
+            </p>
+            <button className="group text-purple-300 hover:text-white font-medium flex items-center">
+              Explore Map
+              <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
+
+          {/* Report View */}
+          <div className="group bg-gradient-to-br from-blue-900/50 to-cyan-900/50 backdrop-blur-sm border border-blue-500/20 rounded-2xl p-8 hover:border-blue-500/40 transition-all duration-300 transform hover:-translate-y-2">
+            <div className="bg-gradient-to-r from-blue-500 to-cyan-500 p-3 rounded-xl w-fit mb-6">
+              <Eye className="h-8 w-8 text-white" />
+            </div>
+            <h3 className="text-2xl font-bold text-white mb-4">Report View</h3>
+            <p className="text-gray-300 mb-6">
+              Browse detailed crime reports with filtering options and comprehensive incident information.
+            </p>
+            <button className="group text-blue-300 hover:text-white font-medium flex items-center">
+              View Reports
+              <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
+
+          {/* Tracking Page */}
+          <div className="group bg-gradient-to-br from-green-900/50 to-teal-900/50 backdrop-blur-sm border border-green-500/20 rounded-2xl p-8 hover:border-green-500/40 transition-all duration-300 transform hover:-translate-y-2">
+            <div className="bg-gradient-to-r from-green-500 to-teal-500 p-3 rounded-xl w-fit mb-6">
+              <MapPin className="h-8 w-8 text-white" />
+            </div>
+            <h3 className="text-2xl font-bold text-white mb-4">Case Tracking</h3>
+            <p className="text-gray-300 mb-6">
+              Track the status of reported cases and receive updates on investigation progress.
+            </p>
+            <button className="group text-green-300 hover:text-white font-medium flex items-center">
+              Track Cases
+              <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
+
+          {/* Dashboard */}
+          <div className="group bg-gradient-to-br from-orange-900/50 to-red-900/50 backdrop-blur-sm border border-orange-500/20 rounded-2xl p-8 hover:border-orange-500/40 transition-all duration-300 transform hover:-translate-y-2">
+            <div className="bg-gradient-to-r from-orange-500 to-red-500 p-3 rounded-xl w-fit mb-6">
+              <BarChart3 className="h-8 w-8 text-white" />
+            </div>
+            <h3 className="text-2xl font-bold text-white mb-4">Analytics Dashboard</h3>
+            <p className="text-gray-300 mb-6">
+              Access comprehensive analytics, trends, and insights about crime patterns in your area.
+            </p>
+            <button className="group text-orange-300 hover:text-white font-medium flex items-center">
+              View Dashboard
+              <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
+
+          {/* Crime Form */}
+          <div className="group bg-gradient-to-br from-indigo-900/50 to-purple-900/50 backdrop-blur-sm border border-indigo-500/20 rounded-2xl p-8 hover:border-indigo-500/40 transition-all duration-300 transform hover:-translate-y-2">
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-3 rounded-xl w-fit mb-6">
+              <FileText className="h-8 w-8 text-white" />
+            </div>
+            <h3 className="text-2xl font-bold text-white mb-4">Report Crime</h3>
+            <p className="text-gray-300 mb-6">
+              Quickly and securely report crimes with our streamlined form designed for urgent situations.
+            </p>
+            <button className="group text-indigo-300 hover:text-white font-medium flex items-center">
+              File Report
+              <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
+
+          {/* Emergency */}
+          <div className="group bg-gradient-to-br from-red-900/50 to-pink-900/50 backdrop-blur-sm border border-red-500/20 rounded-2xl p-8 hover:border-red-500/40 transition-all duration-300 transform hover:-translate-y-2">
+            <div className="bg-gradient-to-r from-red-500 to-pink-500 p-3 rounded-xl w-fit mb-6">
+              <AlertTriangle className="h-8 w-8 text-white" />
+            </div>
+            <h3 className="text-2xl font-bold text-white mb-4">Emergency Alert</h3>
+            <p className="text-gray-300 mb-6">
+              Immediate emergency reporting with direct connection to local law enforcement agencies.
+            </p>
+            <button className="group text-red-300 hover:text-white font-medium flex items-center">
+              Emergency Report
+              <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Call to Action */}
+      <div className="bg-gradient-to-r from-red-600/20 to-orange-600/20 backdrop-blur-sm border-y border-red-500/20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <div className="text-center">
+            <h2 className="text-4xl font-bold text-white mb-6">Ready to Make Your Community Safer?</h2>
+            <p className="text-gray-300 text-lg mb-8 max-w-2xl mx-auto">
+              Join thousands of citizens helping to create safer neighborhoods through real-time crime reporting and community awareness.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button className="bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white px-8 py-4 rounded-full font-semibold text-lg transition-all duration-200 transform hover:scale-105">
+                Get Started Today
+              </button>
+              <button className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white px-8 py-4 rounded-full font-semibold text-lg transition-all duration-200">
+                Learn More
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <footer className="bg-black/20 backdrop-blur-xl border-t border-white/10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div className="col-span-1 md:col-span-2">
+              <div className="flex items-center space-x-2 mb-4">
+                <div className="bg-gradient-to-r from-red-500 to-orange-500 p-2 rounded-lg">
+                  <Shield className="h-6 w-6 text-white" />
+                </div>
+                <div className="text-xl font-bold text-white">SafeWatch</div>
+              </div>
+              <p className="text-gray-400 mb-4 max-w-md">
+                Empowering communities through real-time crime reporting and advanced safety analytics.
+              </p>
+            </div>
+            
+            <div>
+              <h3 className="text-white font-semibold mb-4">Platform</h3>
+              <div className="space-y-2">
+                <a href="#" className="block text-gray-400 hover:text-white transition-colors">Crime Form</a>
+                <a href="#" className="block text-gray-400 hover:text-white transition-colors">Dashboard</a>
+                <a href="#" className="block text-gray-400 hover:text-white transition-colors">Heatmap</a>
+                <a href="#" className="block text-gray-400 hover:text-white transition-colors">Reports</a>
+              </div>
+            </div>
+            
+            <div>
+              <h3 className="text-white font-semibold mb-4">Support</h3>
+              <div className="space-y-2">
+                <a href="#" className="block text-gray-400 hover:text-white transition-colors">Help Center</a>
+                <a href="#" className="block text-gray-400 hover:text-white transition-colors">Contact Us</a>
+                <a href="#" className="block text-gray-400 hover:text-white transition-colors">Privacy Policy</a>
+                <a href="#" className="block text-gray-400 hover:text-white transition-colors">Terms of Service</a>
+              </div>
+            </div>
+          </div>
+          
+          <div className="border-t border-white/10 mt-8 pt-8 text-center">
+            <p className="text-gray-400">© 2025 SafeWatch. All rights reserved.</p>
+          </div>
+        </div>
       </footer>
     </div>
   );
-}
+};
+
+export default CrimeReportingHomepage;
