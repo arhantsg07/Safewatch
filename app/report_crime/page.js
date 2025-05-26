@@ -3,6 +3,7 @@ import React, { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import dynamic from "next/dynamic";
 import "leaflet/dist/leaflet.css";
+import { Icon } from "leaflet";
 
 const MapContainer = dynamic(
   () => import("react-leaflet").then(mod => mod.MapContainer),
@@ -16,7 +17,7 @@ const Marker = dynamic(
   () => import("react-leaflet").then(mod => mod.Marker),
   { ssr: false }
 );
-import { Icon } from "leaflet";
+
 
 const markerIcon = new Icon({
   iconUrl: "https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png",
