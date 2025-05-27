@@ -6,12 +6,12 @@ Clone the repo:
 cd python-server
 ```
 
-Then run the development server:
+Create the virtual environment:
 
 ```bash
 python -m venv venv
 ```
-Create the virtual environment:
+Activate the virtual environment
 
 ``` bash
 source venv/bin/activate (Linux)
