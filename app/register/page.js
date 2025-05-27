@@ -1,6 +1,8 @@
 "use client"
 import React, { useState } from 'react';
 import { ChevronRight, User, Eye, EyeOff } from 'lucide-react';
+import Link from 'next/link';
+import { House } from 'lucide-react';
 
 const LoginPage = () => {
 
@@ -8,7 +10,8 @@ const LoginPage = () => {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [formData, setFormData] = useState({
         username: '',
-        password: ''
+        password: '',
+        confirm_password: '',
     });
 
     const handleInputChange = (e) => {
@@ -18,14 +21,53 @@ const LoginPage = () => {
         });
     };
 
-    const handleSubmit = (e) => {
+     const handleSubmit = async (e) => {
         e.preventDefault();
-        // Handle login logic here
-        console.log('Login attempted with:', formData);
+
+        if (formData.password !== formData.confirm_password) {
+            alert('Passwords do not match');
+            return;
+        }
+
+        try {
+            const response = await fetch('http://localhost:5000/api/signup', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    username: formData.username,
+                    password: formData.password
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                alert('Signup successful!');
+                console.log('Response:', data);
+                // Optionally redirect or clear form
+            } else {
+                alert(`Signup failed: ${data.message || 'Unknown error'}`);
+            }
+        } catch (error) {
+            console.error('Error during signup:', error);
+            alert('Something went wrong. Please try again later.');
+        }
     };
     return (
 
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-cyan-900 to-slate-900">
+            <div className="absolute top-6 left-6">
+				<Link
+					href="/"
+					className="flex items-center space-x-2 text-white hover:text-cyan-300 transition-colors"
+				>
+					<House />
+					<span className="font-medium">Home</span>
+				</Link>
+			</div>
+            
             {/* Login */}
 
             <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
@@ -36,8 +78,8 @@ const LoginPage = () => {
                             <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl mb-4 shadow-lg">
                                 <User className="h-6 w-6 text-white" />
                             </div>
-                            <h2 className="text-3xl font-bold text-white mb-2">Welcome Back</h2>
-                            <p className="text-gray-400">Sign in to access your account</p>
+                            <h2 className="text-3xl font-bold text-white mb-2">Welcome</h2>
+                            <p className="text-gray-400">Sign Up to SafeWatch</p>
                         </div>
 
                         {/* Form */}
@@ -94,7 +136,7 @@ const LoginPage = () => {
                                         name="confirm_password"
                                         type={showConfirmPassword ? "text" : "password"}
                                         placeholder="Confirm password"
-                                        value={formData.password}
+                                        value={formData.confirm_password}
                                         onChange={handleInputChange}
                                         required
                                     />
@@ -113,6 +155,7 @@ const LoginPage = () => {
                             {/* Sign Up Button */}
                             <button
                                 type="submit"
+                                onClick={handleSubmit}
                                 className="group w-full bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold py-3 px-6 rounded-xl hover:from-blue-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-blue-500/25"
                             >
                                 <span className="flex items-center justify-center">
