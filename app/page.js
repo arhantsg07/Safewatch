@@ -1,5 +1,5 @@
 "use client"
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Shield, 
   MapPin, 
@@ -13,16 +13,38 @@ import {
   AlertTriangle,
   ChevronRight,
   Menu,
-  X
+  X,
+  ShieldUser,
+  LogOut
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 const CrimeReportingHomepage = () => {
+  const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
+
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const userData = JSON.parse(localStorage.getItem('user'));
+    if (userData && userData.isLoggedIn) {
+      setUser(userData);
+    }
+  }, []);
+
+  const handleLogout = () => {
+
+  // Clear stored user info
+    localStorage.removeItem("user");
+    document.cookie = "auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+  // Redirect to login page (or homepage)
+    router.push("/login"); 
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-cyan-900 to-slate-900">
@@ -55,11 +77,22 @@ const CrimeReportingHomepage = () => {
                 Reports
               </a>
               
-              <div className="flex items-center space-x-4">
+              {user ? (
+                    <div className="user-info flex items-center space-x-4 text-white">
+                      <div className="flex flex-col items-center">
+                        <ShieldUser />
+                        <span className="username font-medium tracking-wide">{user.username}</span>
+                      </div>
+                        <button onClick={handleLogout}>
+                          <LogOut className='h-5 w-5 hover:text-red-500 transition-colors'/>
+                        </button>
+                    </div>
+                ): ( <div className="flex items-center space-x-4">
                 <button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-2 rounded-full font-medium transition-all duration-200 transform hover:scale-105">
-                  Login
+                  <Link href="/login">Login</Link>
                 </button>
-              </div>
+              </div> )}
+              
             </div>
 
             {/* Mobile menu button */}
