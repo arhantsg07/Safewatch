@@ -1,9 +1,12 @@
-"use client"
+"use client";
 import React, { useState } from 'react';
 import { ChevronRight, User, Eye, EyeOff } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { House } from 'lucide-react';
 
 const LoginPage = () => {
-
+	const router = useRouter();
 	const [showPassword, setShowPassword] = useState(false);
 	const [formData, setFormData] = useState({
 		username: '',
@@ -17,14 +20,58 @@ const LoginPage = () => {
 		});
 	};
 
-	const handleSubmit = (e) => {
+	const handleSubmit = async (e) => {
 		e.preventDefault();
-		// Handle login logic here
-		console.log('Login attempted with:', formData);
+
+		try {
+			const response = await fetch('http://localhost:5000/api/signin', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					username: formData.username,
+					password: formData.password
+				})
+			});
+
+			const data = await response.json();
+
+			if (response.ok) {
+				alert('Login successful!');
+				console.log('Response:', data);
+				const userData = {
+					username: data.username,
+					isLoggedIn: true
+				};
+
+				localStorage.setItem('user', JSON.stringify(userData));
+				document.cookie = "auth-token=true; path=/;";
+				router.push("/");
+				// Optionally redirect or clear form
+			} else {
+				alert(`Login failed: ${data.message || 'Unknown error'}`);
+			}
+		} catch (error) {
+			console.error('Error during Login:', error);
+			alert('Something went wrong. Please try again later.');
+		}
+
 	};
 	return (
 
 		<div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-cyan-900 to-slate-900">
+			<div className="absolute top-6 left-6">
+				<Link
+					href="/"
+					className="flex items-center space-x-2 text-white hover:text-cyan-300 transition-colors"
+				>
+					<House />
+					<span className="font-medium">Home</span>
+				</Link>
+			</div>
+
+
 			{/* Login */}
 
 			<div className="w-full lg:w-1/2 flex items-center justify-center p-8">
@@ -98,6 +145,7 @@ const LoginPage = () => {
 							{/* Login Button */}
 							<button
 								type="submit"
+								onClick={handleSubmit}
 								className="group w-full bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold py-3 px-6 rounded-xl hover:from-blue-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-blue-500/25"
 							>
 								<span className="flex items-center justify-center">
