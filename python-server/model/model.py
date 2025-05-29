@@ -73,6 +73,13 @@ def run_pipeline(user_id=None, report_id=None):
         format_result = extract_all_texts(raw_data)
         print("📄 Final result: ", format_result)
 
+        return {
+            "report_id": report['id'],
+            "OCR_output": format_result,
+            "detections": result["detections"].tolist() if hasattr(result["detections"], "tolist") else result["detections"],
+            "location": (report.get("latitude"), report.get("longitude"))
+        }
+
 # Example usages:
 run_pipeline(user_id=6)
 # run_pipeline(report_id=42)
