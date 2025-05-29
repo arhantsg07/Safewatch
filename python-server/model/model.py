@@ -81,5 +81,5 @@ def run_pipeline(user_id=None, report_id=None):
         }
 
 # Example usages:
-run_pipeline(user_id=6)
+# run_pipeline(user_id=6)
 # run_pipeline(report_id=42)
