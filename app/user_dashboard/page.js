@@ -32,15 +32,43 @@ const UserDashboardPage = () => {
 
   const fetchUserComplaints = async (userId) => {
     try {
-      const { data, error } = await supabase
-        .from("crime_report")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
+      const [crimeReportsRes, emergencyReportsRes] = await Promise.all([
+        supabase
+          .from("crime_report")
+          .select("*")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("crime_emergency_report")
+          .select("*")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false }),
+      ]);
 
-      if (error) throw error;
+      if (crimeReportsRes.error) throw crimeReportsRes.error;
+      if (emergencyReportsRes.error) throw emergencyReportsRes.error;
 
-      setComplaints(data);
+      const crimeReports = crimeReportsRes.data.map((report) => ({
+        id: report.id,
+        type: report.crime_type,
+        location: report.address,
+        status: report.reported_to_police ? "Reported to Police" : "Under Investigation",
+        date: new Date(report.created_at).toLocaleDateString(),
+        created_at: report.created_at,
+        isEmergency: false,
+      }));
+
+      const emergencyReports = emergencyReportsRes.data.map((report) => ({
+        id: report.uuid,
+        type: report.crime_type,
+        location: report.description, // Adjust based on your schema
+        status: "Emergency Alert",
+        date: new Date(report.created_at).toLocaleDateString(),
+        created_at: report.created_at,
+        isEmergency: true,
+      }));
+
+      setComplaints([...crimeReports, ...emergencyReports]);
     } catch (error) {
       console.error("Error fetching user complaints:", error.message);
     }
@@ -48,10 +76,10 @@ const UserDashboardPage = () => {
 
   const filteredComplaints = complaints.filter((complaint) => {
     const matchesSearch =
-      complaint.crime_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      complaint.address.toLowerCase().includes(searchTerm.toLowerCase());
+      complaint.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      complaint.location.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = filterStatus
-      ? complaint.reported_to_police === (filterStatus === "Reported to Police")
+      ? complaint.status === filterStatus
       : true;
     return matchesSearch && matchesFilter;
   });
@@ -88,6 +116,7 @@ const UserDashboardPage = () => {
             <option value="">All Statuses</option>
             <option value="Reported to Police">Reported to Police</option>
             <option value="Under Investigation">Under Investigation</option>
+            <option value="Emergency Alert">Emergency Alert</option>
           </select>
         </div>
 
@@ -124,18 +153,14 @@ const UserDashboardPage = () => {
                   className="hover:bg-white/10 cursor-pointer"
                   onClick={() => handleComplaintClick(complaint)}
                 >
-                  <TableCell>{complaint.crime_type}</TableCell>
-                  <TableCell>{complaint.address}</TableCell>
+                  <TableCell>{complaint.type}</TableCell>
+                  <TableCell>{complaint.location}</TableCell>
                   <TableCell>
-                    <Badge variant={complaint.reported_to_police ? "success" : "warning"}>
-                      {complaint.reported_to_police
-                        ? "Reported to Police"
-                        : "Under Investigation"}
+                    <Badge variant={complaint.status === "Reported to Police" ? "success" : "warning"}>
+                      {complaint.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>
-                    {new Date(complaint.created_at).toLocaleDateString()}
-                  </TableCell>
+                  <TableCell>{complaint.date}</TableCell>
                 </TableRow>
               ))
             ) : (

@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import "leaflet/dist/leaflet.css";
 // import { Icon } from "leaflet";
 import { supabase } from "@/lib/supabaseClient"; // Adjust the import based on your project structure
+import EXIF from "exif-js"; // Import the exif-js library
 
 const MapContainer = dynamic(
   () => import("react-leaflet").then(mod => mod.MapContainer),
@@ -156,6 +157,17 @@ export default function ReportCrimePage() {
     setForm({ ...form, [name]: type === 'checkbox' ? checked : value });
   };
 
+  const fallbackToFileDate = (file) => {
+    const creationDateObj = new Date(file.lastModified);
+    const currentDate = new Date();
+    const diffDays = (currentDate - creationDateObj) / (1000 * 60 * 60 * 24);
+
+    if (diffDays > 7) {
+      alert("The uploaded image is more than 7 days old (based on file modified date).");
+      throw "Image too old (fallback)";
+    }
+  };
+
   // Submit handler
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -174,6 +186,33 @@ export default function ReportCrimePage() {
     if (files.length > 0) {
       try {
         for (const file of files) {
+          // Extract metadata using exif-js
+          await new Promise((resolve, reject) => {
+            EXIF.getData(file, function () {
+              const creationDate = EXIF.getTag(this, "DateTimeOriginal");
+              if (!creationDate) {
+                console.warn("No EXIF date, using file modified date...");
+                try {
+                  fallbackToFileDate(file);
+                  return resolve();
+                } catch (e) {
+                  return reject(e);
+                }
+              } else {
+                const creationDateObj = new Date(creationDate.replace(/:/g, "-").replace(" ", "T"));
+                const currentDate = new Date();
+                const diffDays = (currentDate - creationDateObj) / (1000 * 60 * 60 * 24);
+
+                if (diffDays > 7) {
+                  alert("The uploaded image is more than 7 days old. The report will be discarded.");
+                  reject("Image too old");
+                } else {
+                  resolve();
+                }
+              }
+            });
+          });
+
           const { data, error } = await supabase.storage
             .from("evidence")
             .upload(`evidence/${Date.now()}_${file.name}`, file);
@@ -198,8 +237,7 @@ export default function ReportCrimePage() {
           evidenceUrls.push(publicUrlData?.publicUrl);
         }
       } catch (error) {
-        console.error("Error uploading files:", error);
-        alert("Failed to upload evidence. Please try again.");
+        console.error("Error processing image metadata:", error);
         return;
       }
     }
@@ -228,6 +266,8 @@ export default function ReportCrimePage() {
       reporter_phone: form.reporter_phone,
       evidence_files: evidenceUrls, // Optional field
     };
+
+    console.log("Debugging: Payload being sent to backend:", crimeReportData); // Debugging
 
     try {
       const response = await fetch("http://localhost:5000/api/normal-report", {
