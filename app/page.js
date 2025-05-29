@@ -38,11 +38,15 @@ const CrimeReportingHomepage = () => {
   }, []);
 
   const handleLogout = () => {
-
-  // Clear stored user info
-    localStorage.removeItem("user");
+    // Clear stored user info
+    localStorage.removeItem("user_id");
+    localStorage.removeItem("username");
+    localStorage.removeItem("user"); // Clear additional user data if stored
     document.cookie = "auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
-  // Redirect to login page (or homepage)
+
+    console.log("Debugging: Cleared user_id and username from localStorage"); // Debugging
+
+    // Redirect to login page (or homepage)
     router.push("/login"); 
   }
 
@@ -90,6 +94,9 @@ const CrimeReportingHomepage = () => {
                 ): ( <div className="flex items-center space-x-4">
                 <button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-2 rounded-full font-medium transition-all duration-200 transform hover:scale-105">
                   <Link href="/login">Login</Link>
+                </button>
+                <button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-2 rounded-full font-medium transition-all duration-200 transform hover:scale-105">
+                  <Link href="/admin_login">Admin Login</Link>
                 </button>
               </div> )}
               
@@ -251,10 +258,13 @@ const CrimeReportingHomepage = () => {
             <p className="text-gray-300 mb-6">
               Access comprehensive analytics, trends, and insights about crime patterns in your area.
             </p>
+            
+            <Link href="/user_dashboard">
             <button className="group text-orange-300 hover:text-white font-medium flex items-center">
               View Dashboard
               <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </button>
+            </Link>
           </div>
 
           {/* Crime Form */}
