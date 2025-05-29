@@ -1,9 +1,9 @@
 "use client";
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 import dynamic from "next/dynamic";
 import "leaflet/dist/leaflet.css";
-import { Icon } from "leaflet";
+// import { Icon } from "leaflet";
 import { supabase } from "@/lib/supabaseClient"; // Adjust the import based on your project structure
 import EXIF from "exif-js"; // Import the exif-js library
 
@@ -20,17 +20,31 @@ const Marker = dynamic(
   { ssr: false }
 );
 
+// const markerIcon = new Icon({
+//   iconUrl: "https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png",
+//   iconSize: [25, 41],
+//   iconAnchor: [12, 41],
+// });
 
-const markerIcon = new Icon({
-  iconUrl: "https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-});
+const MapEventHandler = dynamic(
+  () => import("react-leaflet").then(mod => {
+    const { useMapEvents } = mod;
+    return function MapClickHandler({ onMapClick }) {
+      useMapEvents({
+        click: onMapClick,
+      });
+      return null;
+    };
+  }),
+  { ssr: false }
+);
 
 export default function ReportCrimePage() {
   const [files, setFiles] = useState([]); // Multiple files
   const [location, setLocation] = useState({ lat: 28.6139, lng: 77.209 });
   const [manual, setManual] = useState(false);
+  const [markerIcon, setMarkerIcon] = useState(null);
+  const [isClient, setIsClient] = useState(false);
   const [form, setForm] = useState({
     user_id: "", // This should be set from your auth context
   
@@ -55,6 +69,39 @@ export default function ReportCrimePage() {
     reporter_phone: "",
     anonymous: false, // Keep if you want to handle anonymous reporting on the frontend or backend
   });
+
+  useEffect(() => {
+    setIsClient(true);
+    
+    // Dynamically import and setup Leaflet icon
+    const setupLeafletIcon = async () => {
+      if (typeof window !== "undefined") {
+        const L = await import("leaflet");
+        
+        // Fix for default markers
+        delete L.Icon.Default.prototype._getIconUrl;
+        L.Icon.Default.mergeOptions({
+          iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.3/images/marker-icon-2x.png",
+          iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.3/images/marker-icon.png",
+          shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.3/images/marker-shadow.png",
+        });
+
+        const customIcon = new L.Icon({
+          iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.3/images/marker-icon.png",
+          iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.3/images/marker-icon-2x.png",
+          shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.3/images/marker-shadow.png",
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+          popupAnchor: [1, -34],
+          shadowSize: [41, 41]
+        });
+        
+        setMarkerIcon(customIcon);
+      }
+    };
+    
+    setupLeafletIcon();
+  }, []);
 
   // Drag and drop (multiple files)
   const onDrop = useCallback((acceptedFiles) => {
