@@ -85,9 +85,16 @@ export default function ReportCrimePage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Retrieve user_id and user_name from localStorage
-    const user_id = localStorage.getItem("user_id") || null;
-    const user_name = localStorage.getItem("username") || null;
+    // Retrieve user_id and username directly from localStorage
+    const user_id = localStorage.getItem("user_id");
+    const user_name = localStorage.getItem("username");
+
+    console.log("Debugging: Retrieved user_id from localStorage:", user_id); // Debugging
+    console.log("Debugging: Retrieved username from localStorage:", user_name); // Debugging
+
+    if (!user_id || !user_name) {
+      alert("You are submitting this report as an unauthenticated user. Your report will not be linked to an account.");
+    }
 
     let evidenceUrl = null;
     if (file) {
@@ -124,6 +131,7 @@ export default function ReportCrimePage() {
     // Ensure the payload matches the EmergencyReport model
     const emergencyReportData = {
       user_id, // Retrieved from localStorage or null
+      user_name, // Retrieved from localStorage or null
       reporter_type: form.reporter_type,
       security_availability: form.security_availability,
       crime_type: form.crime_type,
@@ -132,6 +140,8 @@ export default function ReportCrimePage() {
       longitude: location.lng,
       description: form.description,
     };
+
+    console.log("Debugging: Payload being sent to backend:", emergencyReportData); // Debugging
 
     try {
       const response = await fetch("http://localhost:5000/api/emergency-report", {

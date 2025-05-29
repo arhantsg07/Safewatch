@@ -113,9 +113,15 @@ export default function ReportCrimePage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Retrieve user_id and user_name from localStorage
-    const user_id = localStorage.getItem("user_id") || null;
-    const user_name = localStorage.getItem("username") || null;
+    const user_id = localStorage.getItem("user_id");
+    const user_name = localStorage.getItem("username");
+
+    console.log("Debugging: Retrieved user_id from localStorage:", user_id); // Debugging
+    console.log("Debugging: Retrieved username from localStorage:", user_name); // Debugging
+
+    if (!user_id || !user_name) {
+      alert("You are submitting this report as an unauthenticated user. Your report will not be linked to an account.");
+    }
 
     let evidenceUrls = [];
     if (files.length > 0) {
@@ -154,6 +160,7 @@ export default function ReportCrimePage() {
     // Ensure the payload matches the NormalReport model
     const crimeReportData = {
       user_id, // Retrieved from localStorage or null
+      user_name, // Retrieved from localStorage or null
       time_of_incident: `${form.time_of_incident_date}T${form.time_of_incident_time}:00Z`,
       address: form.address,
       location_type: form.location_type,

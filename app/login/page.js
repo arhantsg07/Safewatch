@@ -38,7 +38,15 @@ const LoginPage = () => {
 			const data = await response.json();
 
 			if (response.ok) {
+				// Save user_id and username in localStorage
+				localStorage.setItem("user_id", data.user_id);
+				localStorage.setItem("username", data.username);
+
+				console.log("Debugging: Stored user_id:", data.user_id); // Debugging
+				console.log("Debugging: Stored username:", data.username); // Debugging
+
 				alert('Login successful!');
+
 				console.log('Response:', data);
 				const userData = {
 					username: data.username,
@@ -47,6 +55,8 @@ const LoginPage = () => {
 
 				localStorage.setItem('user', JSON.stringify(userData));
 				document.cookie = "auth-token=true; path=/;";
+			
+				
 				router.push("/");
 				// Optionally redirect or clear form
 			} else {
