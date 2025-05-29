@@ -30,8 +30,10 @@ const LoginPage = () => {
         }
 
         try {
+            console.log("Sending POST request to /api/signup"); // Debugging
+
             const response = await fetch('http://localhost:5000/api/signup', {
-                method: 'POST',
+                method: 'POST', // Ensure the method is POST
                 headers: {
                     'Content-Type': 'application/json'
                 },
@@ -41,14 +43,16 @@ const LoginPage = () => {
                 })
             });
 
+            console.log("Response status:", response.status); // Debugging
             const data = await response.json();
+            console.log("Response data:", data); // Debugging
 
             if (response.ok) {
                 alert('Signup successful!');
                 console.log('Response:', data);
                 // Optionally redirect or clear form
             } else {
-                alert(`Signup failed: ${data.message || 'Unknown error'}`);
+                alert(`Signup failed: ${data.detail || 'Unknown error'}`);
             }
         } catch (error) {
             console.error('Error during signup:', error);
