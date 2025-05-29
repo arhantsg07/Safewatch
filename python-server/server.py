@@ -186,10 +186,9 @@ async def create_emergency_report(report: EmergencyReport):
 @app.post("/api/normal-report")
 async def create_normal_report(report: NormalReport, auth_token: str = Header(None)):
     try:
-        print("Debugging: Received payload:", report.dict())  # Default to None if no auth_token is provided
+        # Debugging: Log the received payload
+        print("Debugging: Received payload:", report.dict())  # Debugging
 
-        # Validate user authentication if auth_token is provided
-        
         # Insert report into the database
         response = supabase.table('crime_report').insert({
             'user_id': report.user_id,  # Can be NULL for unauthenticated users
