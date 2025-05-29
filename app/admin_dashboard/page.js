@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -44,22 +44,36 @@ export default function Dashboard() {
     activeCases: 0
   });
 
+  const [analysisData, setAnalysisData] = useState(null);
   const [recentCrimes, setRecentCrimes] = useState([]);
   const [emergencyAlerts, setEmergencyAlerts] = useState([]);
   const [crimeTrendData, setCrimeTrendData] = useState(null);
   const [crimeTypeData, setCrimeTypeData] = useState(null);
   const [emergencyTypeData, setEmergencyTypeData] = useState(null);
 
-  const fetchCrimeReports = async () => {
+
+  const fetchReportAnalysis = async (reportId) => {
+    try {
+      const response = await fetch(`http://localhost:8080/api/crime_report/${reportId}/ocr_text`);
+      if (!response.ok) throw new Error('Failed to fetch analysis data');
+      const data = await response.json();
+      setAnalysisData(data); // 👈 store it
+    } catch (error) {
+      console.error("Error fetching analysis:", error.message);
+    }
+  };
+
+
+  const fetchCrimeReports = useCallback(async () => {
     try {
       const [crimeRes, emergencyRes] = await Promise.all([
         supabase.from('crime_report').select('*').order('created_at', { ascending: false }),
         supabase.from('crime_emergency_report').select('*').order('created_at', { ascending: false }),
       ]);
-  
+
       if (crimeRes.error) throw crimeRes.error;
       if (emergencyRes.error) throw emergencyRes.error;
-  
+
       const crimeReports = crimeRes.data.map(report => ({
         id: report.id,
         type: report.crime_type,
@@ -69,7 +83,7 @@ export default function Dashboard() {
         created_at: report.created_at,
         isEmergency: false,
       }));
-  
+
       const emergencyReports = emergencyRes.data.map(report => ({
         id: report.uuid,
         type: report.crime_type,
@@ -79,24 +93,24 @@ export default function Dashboard() {
         created_at: report.created_at,
         isEmergency: true,
       }));
-  
+
       const combinedReports = [...crimeReports, ...emergencyReports];
-  
+
       setRecentCrimes(crimeReports);
       setEmergencyAlerts(emergencyReports);
-  
+
       setStats({
         totalCrimes: crimeReports.length,
         totalEmergencies: emergencyReports.length,
         resolvedCases: crimeReports.filter(r => r.status === 'Reported to Police').length,
         activeCases: crimeReports.filter(r => r.status === 'Under Investigation').length
       });
-  
+
       processChartData(combinedReports);
     } catch (error) {
       console.error('Error fetching reports:', error.message);
     }
-  };
+  }, []);
 
   const processChartData = (reports) => {
     console.log('Raw reports data from Supabase:', reports);
@@ -166,7 +180,7 @@ export default function Dashboard() {
       .subscribe();
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [fetchCrimeReports]);
 
   return (
     <div className="bg-gradient-to-br from-slate-900 via-cyan-900 to-slate-900 min-h-screen text-white p-8">
@@ -284,7 +298,7 @@ export default function Dashboard() {
               </TableHeader>
               <TableBody>
                 {recentCrimes.map(crime => (
-                  <TableRow key={crime.id} className="hover:bg-white/10">
+                  <TableRow key={crime.id} className="hover:bg-white/10" onClick={() => fetchReportAnalysis(crime.id)}>
                     <TableCell>{crime.type}</TableCell>
                     <TableCell>{crime.location}</TableCell>
                     <TableCell>
@@ -293,6 +307,14 @@ export default function Dashboard() {
                       </Badge>
                     </TableCell>
                     <TableCell>{crime.date}</TableCell>
+                    <TableCell>
+                      <button
+                        onClick={() => fetchReportAnalysis(crime.id)}
+                        className="text-sm text-cyan-400 hover:underline"
+                      >
+                        View Analysis
+                      </button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -333,6 +355,15 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </section>
-    </div>
-  );
+
+      {analysisData && (
+        <div className="mt-10 p-6 bg-white/10 border border-white/20 rounded-2xl text-white">
+          <h3 className="text-xl font-bold mb-2">🧠 AI Analysis for Report #{analysisData.report_id}</h3>
+          <p><strong>📖 OCR Text:</strong> {analysisData.OCR_output}</p>
+          <p><strong>🎯 Detections:</strong> {JSON.stringify(analysisData.detections)}</p>
+          <p><strong>📍 Location:</strong> {analysisData.location?.join(', ')}</p>
+        </div>
+      )}
+    </div>
+  );
 }
