@@ -36,6 +36,7 @@ class UserRegistration(BaseModel):
 
 class EmergencyReport(BaseModel):
     user_id: str | None = None  # Optional field for unauthenticated users
+    user_name: str | None = None  # Optional field for username
     reporter_type: str
     security_availability: str
     crime_type: str
@@ -46,6 +47,7 @@ class EmergencyReport(BaseModel):
 
 class NormalReport(BaseModel):
     user_id: str | None = None  # Optional field for unauthenticated users
+    user_name: str | None = None
     time_of_incident: str
     address: str
     location_type: str
@@ -143,22 +145,15 @@ async def login_user(user_data: UserRegistration):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.post("/api/emergency-report")
-async def create_emergency_report(report: EmergencyReport, auth_token: str = Header(None)):
+async def create_emergency_report(report: EmergencyReport):
     try:
-        user_name = None  # Default to None if no auth_token is provided
-
-        # Validate user authentication if auth_token is provided
-        if auth_token:
-            user_response = supabase.table('users').select('*').eq('auth_token', auth_token).execute()
-            if user_response.data:
-                user = user_response.data[0]
-                report.user_id = user['id']  # Ensure the user_id matches the logged-in user
-                user_name = user['username']  # Get the username of the logged-in user
+        # Debugging: Log the received payload
+        print("Debugging: Received payload:", report.dict())  # Debugging
 
         # Insert report into the database
         response = supabase.table('crime_emergency_report').insert({
             'user_id': report.user_id,  # Can be NULL for unauthenticated users
-            'user_name': user_name,  # Include username if available
+            'user_name': report.user_name,  # Include username if provided
             'reporter_type': report.reporter_type,
             'security_availability': report.security_availability,
             'crime_type': report.crime_type,
@@ -168,12 +163,15 @@ async def create_emergency_report(report: EmergencyReport, auth_token: str = Hea
             'description': report.description,
         }).execute()
 
+        # Debugging: Log the database response
+        print("Debugging: Database response:", response.data)  # Debugging
+
         if response.data:
             return {
                 "message": "Emergency report submitted successfully",
                 "report_id": response.data[0].get('id'),
                 "user_id": report.user_id,
-                "user_name": user_name  # Include user_name in the response if available
+                "user_name": report.user_name  # Include user_name in the response if available
             }
         else:
             raise HTTPException(status_code=500, detail="Failed to submit emergency report")
@@ -188,20 +186,14 @@ async def create_emergency_report(report: EmergencyReport, auth_token: str = Hea
 @app.post("/api/normal-report")
 async def create_normal_report(report: NormalReport, auth_token: str = Header(None)):
     try:
-        user_name = None  # Default to None if no auth_token is provided
+        print("Debugging: Received payload:", report.dict())  # Default to None if no auth_token is provided
 
         # Validate user authentication if auth_token is provided
-        if auth_token:
-            user_response = supabase.table('users').select('*').eq('auth_token', auth_token).execute()
-            if user_response.data:
-                user = user_response.data[0]
-                report.user_id = user['id']  # Ensure the user_id matches the logged-in user
-                user_name = user['username']  # Get the username of the logged-in user
-
+        
         # Insert report into the database
         response = supabase.table('crime_report').insert({
             'user_id': report.user_id,  # Can be NULL for unauthenticated users
-            'user_name': user_name,  # Include username if available
+            'user_name': report.user_name,  # Include username if available
             'time_of_incident': report.time_of_incident,
             'address': report.address,
             'location_type': report.location_type,
@@ -223,12 +215,14 @@ async def create_normal_report(report: NormalReport, auth_token: str = Header(No
             'reporter_phone': report.reporter_phone,
         }).execute()
 
+        print("Debugging: Database response:", response.data)
+        
         if response.data:
             return {
                 "message": "Report submitted successfully",
                 "report_id": response.data[0].get('id'),
                 "user_id": report.user_id,
-                "user_name": user_name  # Include user_name in the response if available
+                "user_name": report.user_name  # Include user_name in the response if available
             }
         else:
             raise HTTPException(status_code=500, detail="Failed to submit report")
