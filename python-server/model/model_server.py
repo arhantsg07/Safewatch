@@ -14,7 +14,7 @@ app.add_middleware(
 
 @app.get("/api/crime_report/{report_id}/ocr_text")
 def get_ocr_text(report_id: UUID):
-    analysis_result = run_pipeline(str(report_id))
+    analysis_result = run_pipeline(report_id=str(report_id))
     if "error" in analysis_result:
         raise HTTPException(status_code=404, detail=analysis_result["error"])
     return analysis_result
