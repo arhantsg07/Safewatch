@@ -169,10 +169,12 @@ const CrimeReportingHomepage = () => {
                   <ChevronRight className="inline-block ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </button>
               </Link>
+              <Link href="#">
               <button className="group bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white px-8 py-4 rounded-full font-semibold text-lg transition-all duration-200">
                 View Live Map
                 <Map className="inline-block ml-2 h-5 w-5" />
               </button>
+              </Link>
             </div>
 
             {/* Stats */}
@@ -213,10 +215,12 @@ const CrimeReportingHomepage = () => {
             <p className="text-gray-300 mb-6">
               Visualize crime patterns and hotspots with our interactive heatmap powered by real-time data.
             </p>
+            <Link href="/crime_heatmap">
             <button className="group text-purple-300 hover:text-white font-medium flex items-center">
               Explore Map
               <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </button>
+            </Link>
           </div>
 
           {/* Report View */}
