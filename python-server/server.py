@@ -4,6 +4,8 @@ from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from supabase import create_client, Client
+import uuid
+from uuid import UUID
 
 SUPABASE_URL = "https://pibltfngauqztjsfqzcv.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpYmx0Zm5nYXVxenRqc2ZxemN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgyODE0NjcsImV4cCI6MjA2Mzg1NzQ2N30.8Kug8-huMJnA0aB8x2oyrSl6B3Nv257PrHFtaHTC9-s"
@@ -67,6 +69,12 @@ class NormalReport(BaseModel):
     reporter_name: str | None = None
     reporter_email: str | None = None
     reporter_phone: str | None = None
+
+class PoliceDetails(BaseModel):
+    report_id: uuid.UUID  # Changed from uuid to str
+    police_station: str
+    officer_name: str
+    contact_number: str
 
 def hash_password(password: str) -> str:
     # salt = os.urandom(32)
@@ -231,4 +239,59 @@ async def create_normal_report(report: NormalReport, auth_token: str = Header(No
 
     except Exception as e:
         print(f"Error submitting report: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@app.post("/api/assign-police-details")
+async def assign_police_details(details: PoliceDetails):
+    try:
+        print("Debugging: Received police details:", details.dict())  # Debugging
+
+        response = supabase.table('police_details').insert({
+            'id': details.report_id,  # Changed from 'report_id' to 'id'
+            'police_station': details.police_station,
+            'officer_name': details.officer_name,
+            'contact_number': details.contact_number,
+        }).execute()
+
+        print("Debugging: Supabase insert response:", response.data)  # Debugging
+
+        if response.data:
+            return {
+                "message": "Police details assigned successfully",
+                "details_id": response.data[0].get('id'),
+                "report_id": details.report_id
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to assign police details")
+
+    except HTTPException as http_error:
+        raise http_error
+
+    except Exception as e:
+        print(f"Error assigning police details: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@app.get("/api/report/{report_id}/police-details")
+async def get_police_details(report_id: uuid.UUID):
+    try:
+        print(f"Debugging: Received report_id: {report_id}")  # Debugging
+        print(f"Debugging: Fetching police details for report_id: {report_id}")  # Debugging
+        response = supabase.table('police_details').select('*').eq('report_id', report_id).execute()
+
+        print(f"Debugging: Supabase fetch response: {response.data}")  # Debugging
+
+        if response.data:
+            return response.data[0]
+        else:
+            raise HTTPException(status_code=404, detail="Police details not found for this report")
+
+    except ValueError:
+        print(f"Error: Invalid UUID format for report_id: {report_id}")
+        raise HTTPException(status_code=400, detail="Invalid report_id format")
+
+    except HTTPException as http_error:
+        raise http_error
+
+    except Exception as e:
+        print(f"Error fetching police details: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
