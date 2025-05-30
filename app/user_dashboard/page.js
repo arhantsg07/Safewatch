@@ -74,6 +74,20 @@ const UserDashboardPage = () => {
     }
   };
 
+  const fetchPoliceDetails = async (reportId) => {
+    try {
+      console.log(`Debugging: Fetching police details for reportId: ${reportId}`); // Debugging
+      const response = await fetch(`http://localhost:5000/api/report/${reportId}/police-details`);
+      if (!response.ok) throw new Error("Failed to fetch police details");
+      const data = await response.json();
+      console.log("Debugging: Police details fetched:", data); // Debugging
+      return data;
+    } catch (error) {
+      console.error("Error fetching police details:", error.message);
+      return null;
+    }
+  };
+
   const filteredComplaints = complaints.filter((complaint) => {
     const matchesSearch =
       complaint.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -84,8 +98,10 @@ const UserDashboardPage = () => {
     return matchesSearch && matchesFilter;
   });
 
-  const handleComplaintClick = (complaint) => {
-    setSelectedComplaint(complaint);
+  const handleComplaintClick = async (complaint) => {
+    const policeDetails = await fetchPoliceDetails(complaint.id); // Use `id` field for fetching police details
+    console.log("Debugging: Selected complaint with police details:", { ...complaint, policeDetails }); // Debugging
+    setSelectedComplaint({ ...complaint, policeDetails });
   };
 
   const resolvedComplaints = complaints.filter(
@@ -177,24 +193,30 @@ const UserDashboardPage = () => {
       {/* Complaint Details Modal */}
       {selectedComplaint && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
-          <div className="bg-white rounded-lg p-6 w-96">
+          <div className="bg-white rounded-lg p-6 w-96 text-black shadow-lg">
             <h2 className="text-xl font-bold mb-4">Complaint Details</h2>
             <p>
-              <strong>Type:</strong> {selectedComplaint.crime_type}
+              <strong>Type:</strong> {selectedComplaint.type}
             </p>
             <p>
-              <strong>Location:</strong> {selectedComplaint.address}
+              <strong>Location:</strong> {selectedComplaint.location}
             </p>
             <p>
-              <strong>Status:</strong>{" "}
-              {selectedComplaint.reported_to_police
-                ? "Reported to Police"
-                : "Under Investigation"}
+              <strong>Status:</strong> {selectedComplaint.status}
             </p>
             <p>
-              <strong>Date:</strong>{" "}
-              {new Date(selectedComplaint.created_at).toLocaleDateString()}
+              <strong>Date:</strong> {selectedComplaint.date}
             </p>
+            {selectedComplaint.policeDetails ? (
+              <>
+                <h3 className="text-lg font-bold mt-4">Assigned Police Details</h3>
+                <p><strong>Station:</strong> {selectedComplaint.policeDetails.police_station}</p>
+                <p><strong>Officer:</strong> {selectedComplaint.policeDetails.officer_name}</p>
+                <p><strong>Contact:</strong> {selectedComplaint.policeDetails.contact_number}</p>
+              </>
+            ) : (
+              <p className="text-gray-400 mt-4">No police details assigned yet.</p>
+            )}
             <button
               onClick={() => setSelectedComplaint(null)}
               className="mt-4 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
