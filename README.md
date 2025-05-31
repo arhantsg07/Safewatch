@@ -71,8 +71,6 @@ bun dev
 
 ## For backend:
 
-## Getting Started
-
 ```bash
 cd python-server
 ```
