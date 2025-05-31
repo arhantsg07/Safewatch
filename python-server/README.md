@@ -29,3 +29,11 @@ Run the server:
 uvicorn server:app --port 5000 --reload
 
 ```
+For the model server:
+
+Run the model_server.py
+
+``` bash
+cd model
+uvicorn model_server:app --port 8080 --reload
+```
