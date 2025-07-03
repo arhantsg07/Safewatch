@@ -1,9 +1,8 @@
 "use client";
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 import dynamic from "next/dynamic";
 import "leaflet/dist/leaflet.css";
-import { Icon } from "leaflet";
 import { supabase } from "../../lib/supabaseClient"; // Adjust the path based on your project structure
 import EXIF from "exif-js"; // Import the exif-js library
 
@@ -20,17 +19,26 @@ const Marker = dynamic(
   { ssr: false }
 );
 
-
-const markerIcon = new Icon({
-  iconUrl: "https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-});
+const MapEventHandler = dynamic(
+  () => import("react-leaflet").then(mod => {
+    const { useMapEvents } = mod;
+    return function MapClickHandler({ onMapClick }) {
+      useMapEvents({
+        click: onMapClick,
+      });
+      return null;
+    };
+  }),
+  { ssr: false }
+);
 
 export default function ReportCrimePage() {
   const [file, setFile] = useState(null);
   const [location, setLocation] = useState({ lat: 28.6139, lng: 77.209 }); // Default: Delhi
   const [manual, setManual] = useState(false);
+  const [markerIcon, setMarkerIcon] = useState(null);
+  const [isClient, setIsClient] = useState(false);
+  const [mapInstance, setMapInstance] = useState(null);
   const [form, setForm] = useState({
     user_id: "", // This should be set from your auth context
     reporter_type: "Victim",
@@ -39,6 +47,39 @@ export default function ReportCrimePage() {
     description: "",
     // evidence_url will be derived from the file upload
   });
+
+  useEffect(() => {
+    setIsClient(true);
+
+    // Dynamically import and setup Leaflet icon
+    const setupLeafletIcon = async () => {
+      if (typeof window !== "undefined") {
+        const L = await import("leaflet");
+
+        // Fix for default markers
+        delete L.Icon.Default.prototype._getIconUrl;
+        L.Icon.Default.mergeOptions({
+          iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.3/images/marker-icon-2x.png",
+          iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.3/images/marker-icon.png",
+          shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.3/images/marker-shadow.png",
+        });
+
+        const customIcon = new L.Icon({
+          iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.3/images/marker-icon.png",
+          iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.3/images/marker-icon-2x.png",
+          shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.3/images/marker-shadow.png",
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+          popupAnchor: [1, -34],
+          shadowSize: [41, 41]
+        });
+
+        setMarkerIcon(customIcon);
+      }
+    };
+
+    setupLeafletIcon();
+  }, []);
 
   // Drag and drop (single file)
   const onDrop = useCallback((acceptedFiles) => {
@@ -53,12 +94,30 @@ export default function ReportCrimePage() {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          setLocation({
+          const newLoc = {
             lat: pos.coords.latitude,
             lng: pos.coords.longitude,
-          });
+          };
+          setLocation(newLoc);
+          if (mapInstance) {
+            mapInstance.setView([newLoc.lat, newLoc.lng], mapInstance.getZoom());
+          }
         },
-        () => alert("Unable to fetch location")
+        (error) => {
+          console.error("Geolocation error:", error);
+          let msg = "Unable to fetch location.";
+          if (error.code === 1) {
+            msg += " Permission denied. Please allow location access in your browser.";
+          } else if (error.code === 2) {
+            msg += " Position unavailable. This can happen if your device/browser cannot determine your location. If you are running this on localhost, make sure you are using HTTPS, or try a different browser/device.";
+          } else if (error.code === 3) {
+            msg += " Timeout while fetching location.";
+          }
+          if (error.message) {
+            msg += " (" + error.message + ")";
+          }
+          alert(msg);
+        }
       );
     } else {
       alert("Geolocation is not supported by this browser.");
@@ -83,14 +142,14 @@ export default function ReportCrimePage() {
   };
 
   const fallbackToFileDate = () => {
-  const creationDateObj = new Date(file.lastModified);
-  const currentDate = new Date();
-  const diffDays = (currentDate - creationDateObj) / (1000 * 60 * 60 * 24);
+    const creationDateObj = new Date(file.lastModified);
+    const currentDate = new Date();
+    const diffDays = (currentDate - creationDateObj) / (1000 * 60 * 60 * 24);
 
-  if (diffDays > 7) {
-    alert("The uploaded image is more than 7 days old (based on file modified date).");
-    throw "Image too old (fallback)";
-  }
+    if (diffDays > 7) {
+      alert("The uploaded image is more than 7 days old (based on file modified date).");
+      throw "Image too old (fallback)";
+    }
   };
 
   // Submit handler
@@ -255,15 +314,18 @@ export default function ReportCrimePage() {
              <h3 style={{ color: '#223388', marginBottom: 8 }}>Location</h3>
             <button type="button" onClick={fetchLocation} style={{ marginBottom: 8, color: '#000' }}>Use My Current Location</button>
             <div style={{ height: 300, marginBottom: 8 }}>
-              <MapContainer
-                center={[location.lat, location.lng]}
-                zoom={15}
-                style={{ height: "100%", width: "100%" }}
-                whenCreated={map => map.on('click', handleMapClick)}
-              >
-                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                <Marker position={[location.lat, location.lng]} icon={markerIcon} />
-              </MapContainer>
+              {isClient && (
+                <MapContainer
+                  center={[location.lat, location.lng]}
+                  zoom={15}
+                  style={{ height: "100%", width: "100%" }}
+                  whenCreated={setMapInstance}
+                >
+                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  <Marker position={[location.lat, location.lng]} icon={markerIcon} />
+                  <MapEventHandler onMapClick={handleMapClick} />
+                </MapContainer>
+              )}
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', color: '#000' }}>
               <label style={{ color: '#000' }}>Lat: <input type="number" step="0.0001" name="lat" value={location.lat} onChange={handleManualChange} style={{ width: 110, color: '#000' }} readOnly /></label>
