@@ -76,6 +76,10 @@ class PoliceDetails(BaseModel):
     officer_name: str
     contact_number: str
 
+class Coordinate(BaseModel):
+    latitude: float
+    longitude: float
+
 def hash_password(password: str) -> str:
     # salt = os.urandom(32)
     # pwdhash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 10000)
@@ -295,3 +299,17 @@ async def get_police_details(report_id: uuid.UUID):
     except Exception as e:
         print(f"Error fetching police details: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+    
+@app.get("/heatmap/coordinates", response_model=list[Coordinate])
+async def get_heatmap_coordinates():
+    try:
+        response = supabase.table('crime_report').select('latitude, longitude').execute()
+        data = response.data
+        # Optionally filter out nulls
+        return [
+            {"latitude": row["latitude"], "longitude": row["longitude"]}
+            for row in data if row["latitude"] is not None and row["longitude"] is not None
+        ]
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
