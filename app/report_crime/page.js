@@ -45,6 +45,7 @@ export default function ReportCrimePage() {
   const [manual, setManual] = useState(false);
   const [markerIcon, setMarkerIcon] = useState(null);
   const [isClient, setIsClient] = useState(false);
+  const [mapInstance, setMapInstance] = useState(null);
   const [form, setForm] = useState({
     user_id: "", // This should be set from your auth context
   
@@ -114,22 +115,20 @@ export default function ReportCrimePage() {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          setLocation({
+          const newLoc = {
             lat: pos.coords.latitude,
             lng: pos.coords.longitude,
-          });
-          // You might want to reverse geocode here to get the address
+          };
+          setLocation(newLoc);
           setForm(prevForm => ({ ...prevForm, address: "Fetching address..." })); // Placeholder
-          // Example reverse geocoding (requires a service/API)
-          // fetch(`YOUR_REVERSE_GEOCODING_API_URL?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`)
-          //   .then(res => res.json())
-          //   .then(data => setForm(prevForm => ({ ...prevForm, address: data.formatted_address }))) // Adjust based on API response
-          //   .catch(error => {
-          //     console.error("Error fetching address:", error);
-          //     setForm(prevForm => ({ ...prevForm, address: "Could not fetch address" }));
-          //   });
+          if (mapInstance) {
+            mapInstance.setView([newLoc.lat, newLoc.lng], mapInstance.getZoom());
+          }
         },
-        () => alert("Unable to fetch location")
+        (error) => {
+          console.error("Geolocation error:", error);
+          alert("Unable to fetch location: " + (error.message || "Unknown error"));
+        }
       );
     } else {
       alert("Geolocation is not supported by this browser.");
@@ -396,21 +395,24 @@ export default function ReportCrimePage() {
             <h3 style={{ color: '#223388', marginBottom: 8 }}>Location</h3>
             <button type="button" onClick={fetchLocation} style={{ marginBottom: 8, color: '#000' }}>Use My Current Location</button>
             <div style={{ height: 300, marginBottom: 8 }}>
-              <MapContainer
-                center={[location.lat, location.lng]}
-                zoom={15}
-                style={{ height: "100%", width: "100%" }}
-                whenCreated={map => map.on('click', handleMapClick)}
-              >
-                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                <Marker position={[location.lat, location.lng]} icon={markerIcon} />
-              </MapContainer>
+              {isClient && (
+                <MapContainer
+                  center={[location.lat, location.lng]}
+                  zoom={15}
+                  style={{ height: "100%", width: "100%" }}
+                  whenCreated={setMapInstance}
+                >
+                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  <Marker position={[location.lat, location.lng]} icon={markerIcon} />
+                  <MapEventHandler onMapClick={handleMapClick} />
+                </MapContainer>
+              )}
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', color: '#000' }}>
               <label style={{ color: '#000' }}>Lat: <input type="number" step="0.0001" name="lat" value={location.lat} onChange={handleManualChange} style={{ width: 110, color: '#000' }} readOnly /></label>
               <label style={{ color: '#000' }}>Lng: <input type="number" step="0.0001" name="lng" value={location.lng} onChange={handleManualChange} style={{ width: 110, color: '#000' }} readOnly /></label>
             </div>
-             {/* Added readOnly to lat/lng inputs as they are controlled by map/geolocation */}
+            {/* Added readOnly to lat/lng inputs as they are controlled by map/geolocation */}
           </div>
 
           {/* Incident Description */}
