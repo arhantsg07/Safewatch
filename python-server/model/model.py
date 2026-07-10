@@ -1,85 +1,161 @@
-from supabase import create_client
+import os
+import logging
 import requests
-from PIL import Image
 from io import BytesIO
-import easyocr
-from ultralytics import YOLO
+from PIL import Image
+import torch
+from transformers import AutoProcessor, AutoModelForCausalLM
+from supabase import create_client, Client
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Setup logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # === Supabase Connection ===
-SUPABASE_URL = "https://pibltfngauqztjsfqzcv.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpYmx0Zm5nYXVxenRqc2ZxemN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgyODE0NjcsImV4cCI6MjA2Mzg1NzQ2N30.8Kug8-huMJnA0aB8x2oyrSl6B3Nv257PrHFtaHTC9-s"
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+SUPABASE_URL = os.environ["SUPABASE_URL"]
+SUPABASE_SECRET_KEY = os.environ["SUPABASE_SECRET_KEY"]
+try:
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_SECRET_KEY)
+    logger.info("Connection to Supabase successful!")
+except Exception as e:
+    logger.error(f"Error connecting to Supabase in model pipeline: {e}")
 
-# === Fetch Report(s) ===
-def fetch_crime_reports(user_id=None, report_id=None):
-    query = supabase.table("crime_report").select("*")
-    
-    if user_id:
-        query = query.eq("user_id", user_id)
-    if report_id:
-        query = query.eq("id", report_id)
+# === Florence-2 Model Setup ===
+# Using florence-2-base because the user has a 4GB GPU
+MODEL_ID = "microsoft/Florence-2-base"
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+logger.info(f"Loading Florence-2 model on {DEVICE}...")
 
-    response = query.execute()
-    return response.data
+TORCH_DTYPE = torch.float16 if DEVICE == "cuda" else torch.float32
+
+try:
+    processor = AutoProcessor.from_pretrained(MODEL_ID, trust_remote_code=True)
+    model = AutoModelForCausalLM.from_pretrained(
+        MODEL_ID, trust_remote_code=True, torch_dtype=TORCH_DTYPE
+    ).to(DEVICE)
+    model.eval()
+    logger.info("Florence-2 loaded successfully.")
+except Exception as e:
+    logger.error(f"Failed to load Florence-2: {e}")
+    processor, model = None, None
+
+def run_florence_task(task_prompt: str, image: Image.Image):
+    if not model or not processor:
+        return "Model not initialized"
+
+    try:
+        inputs = processor(text=task_prompt, images=image, return_tensors="pt").to(DEVICE, TORCH_DTYPE)
+
+        with torch.no_grad():
+            generated_ids = model.generate(
+                input_ids=inputs["input_ids"],
+                pixel_values=inputs["pixel_values"],
+                max_new_tokens=1024,
+                early_stopping=False,
+                do_sample=False,
+                num_beams=3,
+            )
+
+        generated_text = processor.batch_decode(generated_ids, skip_special_tokens=False)[0]
+        parsed_answer = processor.post_process_generation(
+            generated_text,
+            task=task_prompt,
+            image_size=(image.width, image.height),
+        )
+        return parsed_answer[task_prompt]
+    except Exception as e:
+        logger.error(f"Error running Florence-2 task {task_prompt}: {e}")
+        return str(e)
 
 # === Fetch Image ===
-def fetch_image_from_url(url):
-    response = requests.get(url)
-    return Image.open(BytesIO(response.content))
-
-# === OCR & Image Recognition ===
-ocr_reader = easyocr.Reader(['en'])
-yolo_model = YOLO("yolov8n.pt")  # Replace with custom-trained model
-
-def analyze_image(image):
-    ocr_result = ocr_reader.readtext(image)
-    yolo_result = yolo_model(image)
-    return {
-        "ocr": ocr_result,
-        "detections": yolo_result[0].boxes.data.cpu().numpy()
-    }
-
-# format the extracted text into readable format
-def extract_all_texts(raw_data):
-    texts = [entry[1].strip() for entry in raw_data if len(entry) >= 2]
-    return ", ".join(texts)
-
+def fetch_image_from_url(url: str) -> Image.Image:
+    response = requests.get(url, timeout=10)
+    response.raise_for_status()
+    # Convert to RGB as Florence expects RGB images
+    return Image.open(BytesIO(response.content)).convert("RGB")
 
 # === Main Pipeline ===
-def run_pipeline(user_id=None, report_id=None):
-    reports = fetch_crime_reports(user_id=user_id, report_id=report_id)
+def run_pipeline(report_id=None, category="Normal"):
+    """
+    Fetches the report, extracts the first image, and runs Florence-2 analysis.
+    category should be "Normal" or "Emergency".
+    """
+    if not report_id:
+        return {"error": "report_id is required"}
+
+    table = "crime_reports" if category == "Normal" else "emergency_reports"
+    
+    # Fetch report
+    response = supabase.table(table).select("*").eq("id", report_id).execute()
+    reports = response.data
     
     if not reports:
-        print("No reports found.")
-        return
+        return {"error": "Report not found"}
 
-    for report in reports:
-        image_url=None
-        raw_url = report["evidence_files"]
-        # if isinstance(image_url, list):
-        #     image_url = raw_url[0]
-        # else:
-        #     image_url = raw_url
-        print("🔗 Fetching image from:", raw_url[0])
-        image = fetch_image_from_url(raw_url[0])
-        result = analyze_image(image)
+    report = reports[0]
+    
+    # Extract image URL
+    image_url = None
+    if category == "Normal" and report.get("evidence_files") and len(report["evidence_files"]) > 0:
+        image_url = report["evidence_files"][0]
+    elif category == "Emergency" and report.get("evidence_url"):
+        image_url = report["evidence_url"]
+        
+    if not image_url:
+        return {"error": "No visual evidence attached to this report"}
 
-        print(f"✅ Analysis for report ID {report['id']}:")
-        print("📖 OCR Text:", result["ocr"])
-        print("🎯 Object Detections:", result["detections"])
-        print("📍 Location:", (report.get("latitude"), report.get("longitude")))
-
-        raw_data = result["ocr"]
-        format_result = extract_all_texts(raw_data)
-        print("📄 Final result: ", format_result)
-
-        return {
-            "report_id": report['id'],
-            "OCR_output": format_result,
-            "detections": result["detections"].tolist() if hasattr(result["detections"], "tolist") else result["detections"],
-            "location": (report.get("latitude"), report.get("longitude"))
+    try:
+        logger.info(f"Fetching image for report {report_id}...")
+        image = fetch_image_from_url(image_url)
+        
+        logger.info(f"Running Florence-2 analysis on report {report_id}...")
+        
+        # Run specific prompts
+        caption = run_florence_task("<CAPTION>", image)
+        detailed_caption = run_florence_task("<DETAILED_CAPTION>", image)
+        ocr = run_florence_task("<OCR>", image)
+        od = run_florence_task("<OD>", image) # Object Detection
+        
+        analysis_result = {
+            "caption": caption,
+            "detailed_analysis": detailed_caption,
+            "ocr_text": ocr,
+            "detected_objects": od,
         }
+        
+        # Save analysis back to the database
+        logger.info("Saving analysis to database...")
+        supabase.table(table).update({
+            "ai_analysis": analysis_result
+        }).eq("id", report_id).execute()
+        
+        return {
+            "report_id": report_id,
+            "analysis": analysis_result,
+            "status": "success"
+        }
+        
+    except Exception as e:
+        logger.error(f"Pipeline error for report {report_id}: {e}")
+        return {"error": str(e)}
 
-# Example usages:
-# run_pipeline(user_id=6)
-# run_pipeline(report_id=42)
+def analyze_direct_image(image_url: str):
+    """Utility to analyze a direct image URL without a database record"""
+    try:
+        image = fetch_image_from_url(image_url)
+        caption = run_florence_task("<CAPTION>", image)
+        detailed_caption = run_florence_task("<DETAILED_CAPTION>", image)
+        ocr = run_florence_task("<OCR>", image)
+        
+        return {
+            "caption": caption,
+            "detailed_analysis": detailed_caption,
+            "ocr_text": ocr,
+            "status": "success"
+        }
+    except Exception as e:
+        return {"error": str(e)}

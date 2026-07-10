@@ -1,19 +1,31 @@
 import { NextResponse } from "next/server";
 
 export function middleware(request) {
-    const token = request.cookies.get('auth-token')
+  // Extract path
+  const path = request.nextUrl.pathname;
 
-    // if no token found
-    if (!token) {
-        return NextResponse.redirect(new URL('/login', request.url))
+  // Protect User Dashboard
+  if (path.startsWith("/user_dashboard")) {
+    const userAuthToken = request.cookies.get("auth-token")?.value;
+    if (!userAuthToken) {
+      return NextResponse.redirect(new URL("/login", request.url));
     }
+  }
 
-    return NextResponse.next()
+  // Protect Admin Dashboard
+  if (path.startsWith("/admin_dashboard")) {
+    const adminToken = request.cookies.get("admin_token")?.value;
+    if (!adminToken) {
+      return NextResponse.redirect(new URL("/admin_login", request.url));
+    }
+  }
 
+  return NextResponse.next();
 }
 
 export const config = {
-    matcher: [
-        '/report_crime/:path*',
-    ]
-}
+  matcher: [
+    "/user_dashboard/:path*",
+    "/admin_dashboard/:path*"
+  ],
+};
