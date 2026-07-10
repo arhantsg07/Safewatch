@@ -1,369 +1,361 @@
 "use client";
-
-import { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Navbar from "@/components/Navbar";
+import { useToast } from "@/components/Toast";
+import { supabase } from "@/lib/supabaseClient";
 import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  Title,
-  Tooltip,
-  Legend,
-} from 'chart.js';
-import { Line, Pie, Bar } from 'react-chartjs-2';
-import { createClient } from '@supabase/supabase-js';
+  ShieldAlert,
+  Users,
+  FileText,
+  Activity,
+  LogOut,
+  RefreshCw,
+  Search,
+  CheckCircle,
+  XCircle,
+  Clock,
+  MapPin,
+  Bot,
+  AlertTriangle,
+  Loader2
+} from "lucide-react";
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  Title,
-  Tooltip,
-  Legend
-);
-
-// Initialize Supabase client
-const supabaseUrl = "https://pibltfngauqztjsfqzcv.supabase.co";
-const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpYmx0Zm5nYXVxenRqc2ZxemN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgyODE0NjcsImV4cCI6MjA2Mzg1NzQ2N30.8Kug8-huMJnA0aB8x2oyrSl6B3Nv257PrHFtaHTC9-s";
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-export default function Dashboard() {
+export default function AdminDashboard() {
+  const router = useRouter();
+  const toast = useToast();
+  const [loading, setLoading] = useState(true);
+  const [complaints, setComplaints] = useState([]);
   const [stats, setStats] = useState({
-    totalCrimes: 0,
-    totalEmergencies: 0,
-    resolvedCases: 0,
-    activeCases: 0
+    total: 0,
+    pending: 0,
+    resolved: 0,
+    inProgress: 0,
+    emergency: 0
   });
 
-  const [analysisData, setAnalysisData] = useState(null);
-  const [recentCrimes, setRecentCrimes] = useState([]);
-  const [emergencyAlerts, setEmergencyAlerts] = useState([]);
-  const [crimeTrendData, setCrimeTrendData] = useState(null);
-  const [crimeTypeData, setCrimeTypeData] = useState(null);
-  const [emergencyTypeData, setEmergencyTypeData] = useState(null);
-
-
-  const fetchReportAnalysis = async (reportId) => {
-    try {
-      const response = await fetch(`http://localhost:8080/api/crime_report/${reportId}/ocr_text`);
-      if (!response.ok) throw new Error('Failed to fetch analysis data');
-      const data = await response.json();
-      setAnalysisData(data); // 👈 store it
-    } catch (error) {
-      console.error("Error fetching analysis:", error.message);
-    }
-  };
-
-
-  const fetchCrimeReports = useCallback(async () => {
-    try {
-      const [crimeRes, emergencyRes] = await Promise.all([
-        supabase.from('crime_report').select('*').order('created_at', { ascending: false }),
-        supabase.from('crime_emergency_report').select('*').order('created_at', { ascending: false }),
-      ]);
-
-      if (crimeRes.error) throw crimeRes.error;
-      if (emergencyRes.error) throw emergencyRes.error;
-
-      const crimeReports = crimeRes.data.map(report => ({
-        id: report.id,
-        type: report.crime_type,
-        location: report.address,
-        status: report.reported_to_police ? 'Reported to Police' : 'Under Investigation',
-        date: new Date(report.created_at).toLocaleDateString(),
-        created_at: report.created_at,
-        isEmergency: false,
-      }));
-
-      const emergencyReports = emergencyRes.data.map(report => ({
-        id: report.uuid,
-        type: report.crime_type,
-        location: report.description, // or wherever address is stored
-        status: 'Emergency Alert',
-        date: new Date(report.created_at).toLocaleDateString(),
-        created_at: report.created_at,
-        isEmergency: true,
-      }));
-
-      const combinedReports = [...crimeReports, ...emergencyReports];
-
-      setRecentCrimes(crimeReports);
-      setEmergencyAlerts(emergencyReports);
-
-      setStats({
-        totalCrimes: crimeReports.length,
-        totalEmergencies: emergencyReports.length,
-        resolvedCases: crimeReports.filter(r => r.status === 'Reported to Police').length,
-        activeCases: crimeReports.filter(r => r.status === 'Under Investigation').length
-      });
-
-      processChartData(combinedReports);
-    } catch (error) {
-      console.error('Error fetching reports:', error.message);
-    }
-  }, []);
-
-  const processChartData = (reports) => {
-    console.log('Raw reports data from Supabase:', reports);
-    const last6Months = Array.from({ length: 6 }, (_, i) => {
-      const date = new Date();
-      date.setMonth(date.getMonth() - i);
-      return date.toLocaleString('default', { month: 'short' });
-    }).reverse();
-
-    const crimeTrendData = {
-      labels: last6Months,
-      datasets: [{
-        label: 'Crime Reports',
-        data: last6Months.map(month =>
-          reports.filter(report =>
-            new Date(report.created_at).toLocaleString('default', { month: 'short' }) === month
-          ).length
-        ),
-        borderColor: 'rgb(75, 192, 192)',
-        backgroundColor: 'rgba(75, 192, 192, 0.2)',
-        tension: 0.3,
-      }],
-    };
-
-    const crimeTypes = [...new Set(reports.map(r => r.type))];
-    const crimeTypeData = {
-      labels: crimeTypes,
-      datasets: [{
-        data: crimeTypes.map(type =>
-          reports.filter(r => r.type === type).length
-        ),
-        backgroundColor: ['#0ea5e9', '#9333ea', '#facc15', '#ef4444', '#10b981'],
-      }],
-    };
-
-    const emergencyReports = reports.filter(r => r.isEmergency);
-    const emergencyTypes = [...new Set(emergencyReports.map(r => r.type))];
-    const emergencyTypeData = {
-      labels: emergencyTypes,
-      datasets: [{
-        label: 'Emergency Alerts',
-        data: emergencyTypes.map(type =>
-          emergencyReports.filter(r => r.type === type).length
-        ),
-        backgroundColor: emergencyTypes.map((_, i) =>
-          ['#f87171', '#60a5fa', '#facc15', '#34d399', '#a78bfa'][i % 5]
-        ),
-      }],
-    };
-
-    setCrimeTrendData(crimeTrendData);
-    setCrimeTypeData(crimeTypeData);
-    setEmergencyTypeData(emergencyTypeData);
-
-    console.log('Emergency Reports:', emergencyReports);
-    console.log('Emergency Type Chart Data:', emergencyTypeData);
-  };
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [analyzing, setAnalyzing] = useState({});
 
   useEffect(() => {
-    fetchCrimeReports();
+    // Check auth
+    if (!localStorage.getItem("admin_token")) {
+      router.replace("/admin_login");
+      return;
+    }
+    fetchData();
+  }, []);
 
-    const subscription = supabase
-      .channel('crime_reports_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'crime_report' }, () => {
-        fetchCrimeReports();
-      })
-      .subscribe();
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const { data: normalData, error: normalError } = await supabase
+        .from("crime_reports")
+        .select("*")
+        .order("created_at", { ascending: false });
 
-    return () => subscription.unsubscribe();
-  }, [fetchCrimeReports]);
+      if (normalError) throw normalError;
+
+      const { data: emergencyData, error: emergencyError } = await supabase
+        .from("emergency_reports")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (emergencyError) throw emergencyError;
+
+      const mappedNormal = normalData.map(c => ({ ...c, report_category: 'Normal' }));
+      const mappedEmergency = emergencyData.map(c => ({
+        ...c,
+        report_category: 'Emergency',
+        time_of_incident: c.created_at,
+        incident_description: c.description,
+        status: c.status || 'Pending'
+      }));
+
+      const merged = [...mappedNormal, ...mappedEmergency].sort((a, b) => 
+        new Date(b.created_at) - new Date(a.created_at)
+      );
+
+      setComplaints(merged);
+      
+      // Calculate stats
+      setStats({
+        total: merged.length,
+        pending: merged.filter(c => !c.status || c.status === "Pending").length,
+        resolved: merged.filter(c => c.status === "Resolved").length,
+        inProgress: merged.filter(c => c.status === "In Progress").length,
+        emergency: mappedEmergency.length
+      });
+
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      toast.error("Failed to sync dashboard data.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStatusChange = async (id, category, newStatus) => {
+    try {
+      const table = category === 'Emergency' ? 'emergency_reports' : 'crime_reports';
+      const { error } = await supabase
+        .from(table)
+        .update({ status: newStatus })
+        .eq("id", id);
+
+      if (error) throw error;
+      
+      toast.success(`Report status updated to ${newStatus}`);
+      fetchData(); // Refresh to ensure sync
+    } catch (error) {
+      console.error("Status update error:", error);
+      toast.error("Failed to update status.");
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("admin_token");
+    toast.info("Logged out successfully");
+    router.push("/admin_login");
+  };
+
+  const handleAnalyze = async (id, category) => {
+    setAnalyzing((prev) => ({ ...prev, [id]: true }));
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_MODEL_API_URL || "http://localhost:8080";
+      const response = await fetch(`${apiUrl}/api/crime_report/${id}/analysis?category=${category}`, {
+        method: "GET"
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || "Analysis failed");
+      }
+      toast.success("Analysis complete!");
+      fetchData();
+    } catch (error) {
+      console.error("Analysis error:", error);
+      toast.error(error.message || "Failed to analyze image.");
+    } finally {
+      setAnalyzing((prev) => ({ ...prev, [id]: false }));
+    }
+  };
+
+  const filteredComplaints = complaints
+    .filter((c) => statusFilter === "All" || (c.status || "Pending") === statusFilter)
+    .filter((c) => {
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        (c.crime_type || "").toLowerCase().includes(searchLower) ||
+        (c.id || "").toLowerCase().includes(searchLower) ||
+        (c.user_name || "").toLowerCase().includes(searchLower)
+      );
+    });
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "Resolved": return "text-emerald-400 bg-emerald-400/10 border-emerald-400/20";
+      case "In Progress": return "text-blue-400 bg-blue-400/10 border-blue-400/20";
+      case "Rejected": return "text-red-400 bg-red-400/10 border-red-400/20";
+      default: return "text-yellow-400 bg-yellow-400/10 border-yellow-400/20";
+    }
+  };
 
   return (
-    <div className="bg-gradient-to-br from-slate-900 via-cyan-900 to-slate-900 min-h-screen text-white p-8">
-      <h1 className="text-4xl font-bold mb-10">Crime Dashboard</h1>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-        {[
-          { title: "Total Crime Reports", value: stats.totalCrimes },
-          { title: "Emergency Alerts", value: stats.totalEmergencies },
-          { title: "Resolved Cases", value: stats.resolvedCases },
-          { title: "Active Cases", value: stats.activeCases },
-        ].map((item, idx) => (
-          <Card key={idx} className="bg-white/10 backdrop-blur-sm border border-white/10 shadow-xl rounded-2xl p-4 hover:scale-[1.01] transition-transform duration-300">
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-white/70">{item.title}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{item.value}</div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
-        <Card className="bg-white/10 backdrop-blur-sm border border-white/10 shadow-xl rounded-2xl p-4">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold text-white/80">Crime Reports Trend</CardTitle>
-          </CardHeader>
-          <CardContent className="h-[250px]">
-            {crimeTrendData && <Line data={crimeTrendData} options={{
-              maintainAspectRatio: false,
-              scales: {
-                x: {
-                  ticks: { color: 'white' },
-                  grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                },
-                y: {
-                  ticks: { color: 'white' },
-                  grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                },
-              },
-              plugins: {
-                legend: {
-                  labels: {
-                    color: 'white',
-                  },
-                },
-              },
-            }} />}
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white/10 backdrop-blur-sm border border-white/10 shadow-xl rounded-2xl p-4">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold text-white/80">Crime Type Distribution</CardTitle>
-          </CardHeader>
-          <CardContent className="h-[250px]">
-            {crimeTypeData && <Pie data={crimeTypeData} options={{
-              maintainAspectRatio: false,
-              plugins: {
-                legend: {
-                  labels: {
-                    color: 'white',
-                  },
-                },
-              },
-            }} />}
-          </CardContent>
-        </Card>
-
-        <Card className="lg:col-span-2 bg-white/10 backdrop-blur-sm border border-white/10 shadow-xl rounded-2xl p-4">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold text-white/80">Emergency Alerts by Type</CardTitle>
-          </CardHeader>
-          <CardContent className="h-[300px]">
-            {emergencyTypeData && <Bar data={emergencyTypeData} options={{
-              maintainAspectRatio: false,
-              scales: {
-                x: {
-                  ticks: { color: 'white' },
-                  grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                },
-                y: {
-                  ticks: { color: 'white' },
-                  grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                },
-              },
-              plugins: {
-                legend: {
-                  labels: {
-                    color: 'white',
-                  },
-                },
-              },
-            }} />}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent Crime Reports */}
-      <section className="mb-10">
-        <h2 className="text-2xl font-semibold mb-4">Recent Crime Reports</h2>
-        <Card className="bg-white/10 backdrop-blur-sm border border-white/10 shadow-xl rounded-2xl">
-          <CardContent className="p-4">
-            <Table className="text-white/90">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-white">Type</TableHead>
-                  <TableHead className="text-white">Location</TableHead>
-                  <TableHead className="text-white">Status</TableHead>
-                  <TableHead className="text-white">Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recentCrimes.map(crime => (
-                  <TableRow key={crime.id} className="hover:bg-white/10" onClick={() => fetchReportAnalysis(crime.id)}>
-                    <TableCell>{crime.type}</TableCell>
-                    <TableCell>{crime.location}</TableCell>
-                    <TableCell>
-                      <Badge variant={crime.status === 'Reported to Police' ? 'success' : 'warning'}>
-                        {crime.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{crime.date}</TableCell>
-                    <TableCell>
-                      <button
-                        onClick={() => fetchReportAnalysis(crime.id)}
-                        className="text-sm text-cyan-400 hover:underline"
-                      >
-                        View Analysis
-                      </button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* Emergency Alerts */}
-      <section>
-        <h2 className="text-2xl font-semibold mb-4">Emergency Alerts</h2>
-        <Card className="bg-white/10 backdrop-blur-sm border border-white/10 shadow-xl rounded-2xl">
-          <CardContent className="p-4">
-            <Table className="text-white/90">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-white">Type</TableHead>
-                  <TableHead className="text-white">Location</TableHead>
-                  <TableHead className="text-white">Status</TableHead>
-                  <TableHead className="text-white">Time</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {emergencyAlerts.map(alert => (
-                  <TableRow key={alert.id} className="hover:bg-white/10">
-                    <TableCell>{alert.type}</TableCell>
-                    <TableCell>{alert.location}</TableCell>
-                    <TableCell>
-                      <Badge variant={alert.status === 'Reported to Police' ? 'success' : 'destructive'}>
-                        {alert.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{alert.date}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </section>
-
-      {analysisData && (
-        <div className="mt-10 p-6 bg-white/10 border border-white/20 rounded-2xl text-white">
-          <h3 className="text-xl font-bold mb-2">🧠 AI Analysis for Report #{analysisData.report_id}</h3>
-          <p><strong>📖 OCR Text:</strong> {analysisData.OCR_output}</p>
-          <p><strong>🎯 Detections:</strong> {JSON.stringify(analysisData.detections)}</p>
-          <p><strong>📍 Location:</strong> {analysisData.location?.join(', ')}</p>
+    <div className="min-h-screen bg-slate-900 pb-12">
+      {/* Admin specific minimalist navbar */}
+      <nav className="bg-slate-900/80 backdrop-blur-xl border-b border-white/10 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+             <div className="bg-gradient-to-br from-blue-600 to-indigo-600 p-2 rounded-xl shadow-lg">
+               <ShieldAlert className="h-5 w-5 text-white" />
+             </div>
+             <span className="text-xl font-bold text-white tracking-tight">Admin Console</span>
+          </div>
+          <div className="flex items-center gap-4">
+             <button onClick={fetchData} className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors" title="Refresh Data">
+                <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+             </button>
+             <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg font-medium text-sm transition-colors">
+                <LogOut className="h-4 w-4" /> Logout
+             </button>
+          </div>
         </div>
-      )}
+      </nav>
+
+      <div className="max-w-7xl mx-auto px-4 pt-8">
+        
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="glass-card p-6 border-blue-500/20 rounded-2xl relative overflow-hidden group">
+            <div className="absolute right-0 top-0 w-24 h-24 bg-blue-500/10 rounded-bl-full group-hover:scale-110 transition-transform" />
+            <div className="flex justify-between items-start">
+               <div>
+                 <p className="text-gray-400 text-sm font-medium mb-1">Total Reports</p>
+                 <h3 className="text-3xl font-bold text-white">{stats.total}</h3>
+               </div>
+               <FileText className="h-6 w-6 text-blue-400" />
+            </div>
+          </div>
+          
+          <div className="glass-card p-6 border-red-500/20 rounded-2xl relative overflow-hidden group">
+            <div className="absolute right-0 top-0 w-24 h-24 bg-red-500/10 rounded-bl-full group-hover:scale-110 transition-transform" />
+            <div className="flex justify-between items-start">
+               <div>
+                 <p className="text-gray-400 text-sm font-medium mb-1">Emergencies</p>
+                 <h3 className="text-3xl font-bold text-red-400">{stats.emergency}</h3>
+               </div>
+               <AlertTriangle className="h-6 w-6 text-red-400" />
+            </div>
+          </div>
+
+          <div className="glass-card p-6 border-yellow-500/20 rounded-2xl relative overflow-hidden group">
+            <div className="absolute right-0 top-0 w-24 h-24 bg-yellow-500/10 rounded-bl-full group-hover:scale-110 transition-transform" />
+            <div className="flex justify-between items-start">
+               <div>
+                 <p className="text-gray-400 text-sm font-medium mb-1">Pending Review</p>
+                 <h3 className="text-3xl font-bold text-yellow-400">{stats.pending}</h3>
+               </div>
+               <Clock className="h-6 w-6 text-yellow-400" />
+            </div>
+          </div>
+
+          <div className="glass-card p-6 border-emerald-500/20 rounded-2xl relative overflow-hidden group">
+            <div className="absolute right-0 top-0 w-24 h-24 bg-emerald-500/10 rounded-bl-full group-hover:scale-110 transition-transform" />
+            <div className="flex justify-between items-start">
+               <div>
+                 <p className="text-gray-400 text-sm font-medium mb-1">Resolved Cases</p>
+                 <h3 className="text-3xl font-bold text-emerald-400">{stats.resolved}</h3>
+               </div>
+               <CheckCircle className="h-6 w-6 text-emerald-400" />
+            </div>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="flex flex-col md:flex-row gap-4 mb-6">
+           <div className="relative flex-1 max-w-md">
+             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+             <input
+               type="text"
+               placeholder="Search by ID, user, or crime type..."
+               value={searchTerm}
+               onChange={(e) => setSearchTerm(e.target.value)}
+               className="input-dark pl-10 bg-white/[0.02]"
+             />
+           </div>
+           <select
+             value={statusFilter}
+             onChange={(e) => setStatusFilter(e.target.value)}
+             className="input-dark w-full md:w-48 bg-white/[0.02]"
+           >
+             <option value="All">All Statuses</option>
+             <option value="Pending">Pending</option>
+             <option value="In Progress">In Progress</option>
+             <option value="Resolved">Resolved</option>
+             <option value="Rejected">Rejected</option>
+           </select>
+        </div>
+
+        {/* Data Table */}
+        <div className="glass-card rounded-2xl overflow-hidden border-white/5">
+           <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                 <thead>
+                    <tr className="border-b border-white/5 bg-white/[0.02]">
+                       <th className="p-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Report Info</th>
+                       <th className="p-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Details</th>
+                       <th className="p-4 text-xs font-semibold text-gray-400 uppercase tracking-wider hidden md:table-cell">AI Analysis</th>
+                       <th className="p-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Status & Action</th>
+                    </tr>
+                 </thead>
+                 <tbody className="divide-y divide-white/5">
+                    {loading ? (
+                        <tr>
+                           <td colSpan="4" className="p-12 text-center">
+                              <Loader2 className="h-8 w-8 text-blue-500 animate-spin mx-auto mb-3" />
+                              <p className="text-gray-400">Syncing data from database...</p>
+                           </td>
+                        </tr>
+                    ) : filteredComplaints.length === 0 ? (
+                        <tr>
+                           <td colSpan="4" className="p-12 text-center">
+                              <p className="text-gray-400">No reports match the current filters.</p>
+                           </td>
+                        </tr>
+                    ) : (
+                        filteredComplaints.map(c => (
+                           <tr key={c.id} className="hover:bg-white/[0.02] transition-colors">
+                              <td className="p-4 align-top">
+                                 <div className="font-mono text-xs text-gray-500 mb-1">{c.id.split('-')[0]}</div>
+                                 <div className="font-semibold text-white mb-1">{c.crime_type}</div>
+                                 <div className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                                    c.report_category === 'Emergency' ? 'bg-red-500/20 text-red-400' : 'bg-blue-500/20 text-blue-400'
+                                 }`}>
+                                    {c.report_category}
+                                 </div>
+                              </td>
+                              <td className="p-4 align-top min-w-[200px]">
+                                 <div className="text-sm text-gray-300 line-clamp-2 mb-2">{c.incident_description}</div>
+                                 <div className="text-xs text-gray-500 flex items-center mb-1">
+                                    <MapPin className="h-3 w-3 mr-1" /> {c.address || "Location unavailable"}
+                                 </div>
+                                 <div className="text-xs text-gray-500 flex items-center">
+                                    <Users className="h-3 w-3 mr-1" /> By: {c.user_name || 'Anonymous'}
+                                 </div>
+                              </td>
+                              <td className="p-4 align-top hidden md:table-cell max-w-[250px]">
+                                 {c.ai_analysis ? (
+                                    <div className="bg-white/5 rounded p-2 border border-white/5">
+                                      <div className="flex items-center text-xs text-blue-400 font-medium mb-1">
+                                        <Bot className="h-3 w-3 mr-1" /> Florence-2 Vision
+                                      </div>
+                                      <p className="text-xs text-gray-400 line-clamp-3">
+                                        {typeof c.ai_analysis === 'string' ? c.ai_analysis : JSON.stringify(c.ai_analysis)}
+                                      </p>
+                                    </div>
+                                 ) : c.evidence_files?.length > 0 || c.evidence_url ? (
+                                     <div className="flex flex-col gap-2 items-start">
+                                       <span className="text-xs text-yellow-500/70 italic border border-yellow-500/20 px-2 py-1 rounded bg-yellow-500/5">Analysis Pending</span>
+                                       <button 
+                                         onClick={() => handleAnalyze(c.id, c.report_category)}
+                                         disabled={analyzing[c.id]}
+                                         className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                                       >
+                                         {analyzing[c.id] ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bot className="h-3 w-3" />}
+                                         Analyze Image
+                                       </button>
+                                     </div>
+                                 ) : (
+                                     <span className="text-xs text-gray-600 italic">No visual evidence provided</span>
+                                 )}
+                              </td>
+                              <td className="p-4 align-top w-48">
+                                 <div className="flex flex-col gap-2">
+                                     <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium border text-center ${getStatusColor(c.status || 'Pending')}`}>
+                                        {c.status || "Pending"}
+                                     </span>
+                                     <select
+                                       className="text-xs bg-slate-800 text-white border border-white/10 rounded px-2 py-1.5 focus:border-blue-500 outline-none"
+                                       value={c.status || "Pending"}
+                                       onChange={(e) => handleStatusChange(c.id, c.report_category, e.target.value)}
+                                     >
+                                        <option value="Pending">Mark Pending</option>
+                                        <option value="In Progress">Mark In Progress</option>
+                                        <option value="Resolved">Mark Resolved</option>
+                                        <option value="Rejected">Mark Rejected</option>
+                                     </select>
+                                 </div>
+                              </td>
+                           </tr>
+                        ))
+                    )}
+                 </tbody>
+              </table>
+           </div>
+        </div>
+
+      </div>
     </div>
   );
 }

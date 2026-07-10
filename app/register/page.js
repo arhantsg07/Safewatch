@@ -1,188 +1,217 @@
-"use client"
-import React, { useState } from 'react';
-import { ChevronRight, User, Eye, EyeOff } from 'lucide-react';
-import Link from 'next/link';
-import { House } from 'lucide-react';
+"use client";
+import React, { useState } from "react";
+import { ChevronRight, UserPlus, Eye, EyeOff, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import Navbar from "@/components/Navbar";
+import { useToast } from "@/components/Toast";
 
-const LoginPage = () => {
+export default function RegisterPage() {
+  const router = useRouter();
+  const toast = useToast();
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    username: "",
+    password: "",
+    confirm_password: "",
+  });
 
-    const [showPassword, setShowPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-    const [formData, setFormData] = useState({
-        username: '',
-        password: '',
-        confirm_password: '',
-    });
+  const handleInputChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
 
-    const handleInputChange = (e) => {
-        setFormData({
-            ...formData,
-            [e.target.name]: e.target.value
-        });
-    };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-     const handleSubmit = async (e) => {
-        e.preventDefault();
+    if (formData.password !== formData.confirm_password) {
+      toast.error("Passwords do not match");
+      return;
+    }
 
-        if (formData.password !== formData.confirm_password) {
-            alert('Passwords do not match');
-            return;
-        }
+    if (formData.password.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
 
-        try {
-            console.log("Sending POST request to /api/signup"); // Debugging
+    setLoading(true);
 
-            const response = await fetch('http://localhost:5000/api/signup', {
-                method: 'POST', // Ensure the method is POST
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    username: formData.username,
-                    password: formData.password
-                })
-            });
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const response = await fetch(`${apiUrl}/api/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: formData.username,
+          password: formData.password,
+        }),
+      });
 
-            console.log("Response status:", response.status); // Debugging
-            const data = await response.json();
-            console.log("Response data:", data); // Debugging
+      const data = await response.json();
 
-            if (response.ok) {
-                alert('Signup successful!');
-                console.log('Response:', data);
-                // Optionally redirect or clear form
-            } else {
-                alert(`Signup failed: ${data.detail || 'Unknown error'}`);
-            }
-        } catch (error) {
-            console.error('Error during signup:', error);
-            alert('Something went wrong. Please try again later.');
-        }
-    };
-    return (
+      if (response.ok) {
+        toast.success("Account created successfully! Redirecting to login...");
+        setTimeout(() => router.push("/login"), 1500);
+      } else {
+        toast.error(data.detail || "Registration failed. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error during signup:", error);
+      toast.error("Connection failed. Please check if the server is running.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-cyan-900 to-slate-900">
-            <div className="absolute top-6 left-6">
-				<Link
-					href="/"
-					className="flex items-center space-x-2 text-white hover:text-cyan-300 transition-colors"
-				>
-					<House />
-					<span className="font-medium">Home</span>
-				</Link>
-			</div>
-            
-            {/* Login */}
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
 
-            <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
-                <div className="w-full max-w-md">
-                    <div className="group bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl hover:border-blue-500/30 transition-all duration-500 hover:shadow-blue-500/10">
-                        {/* Header */}
-                        <div className="text-center mb-8">
-                            <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl mb-4 shadow-lg">
-                                <User className="h-6 w-6 text-white" />
-                            </div>
-                            <h2 className="text-3xl font-bold text-white mb-2">Welcome</h2>
-                            <p className="text-gray-400">Sign Up to SafeWatch</p>
-                        </div>
-
-                        {/* Form */}
-                        <div className="space-y-6">
-                            {/* Username Field */}
-                            <div>
-                                <label className="block text-white text-sm font-semibold mb-2" htmlFor="username">
-                                    Username
-                                </label>
-                                <input
-                                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:bg-white/10 transition-all duration-300"
-                                    id="username"
-                                    name="username"
-                                    type="text"
-                                    placeholder="Enter your username"
-                                    value={formData.username}
-                                    onChange={handleInputChange}
-                                    required
-                                />
-                            </div>
-
-                            {/* Password Field */}
-                            <div>
-                                <label className="block text-white text-sm font-semibold mb-2" htmlFor="password">
-                                    Password
-                                </label>
-                                <div className="relative">
-                                    <input
-                                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:bg-white/10 transition-all duration-300 pr-12"
-                                        id="password"
-                                        name="password"
-                                        type={showPassword ? "text" : "password"}
-                                        placeholder="Enter your password"
-                                        value={formData.password}
-                                        onChange={handleInputChange}
-                                        required
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
-                                    >
-                                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                                    </button>
-
-                                </div>
-                                <div className="relative mt-6">
-                                    <label className="block text-white text-sm font-semibold mb-2" htmlFor="password">
-                                        Confirm Password
-                                    </label>
-                                    <input
-                                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:bg-white/10 transition-all duration-300 pr-12"
-                                        id="confirm_password"
-                                        name="confirm_password"
-                                        type={showConfirmPassword ? "text" : "password"}
-                                        placeholder="Confirm password"
-                                        value={formData.confirm_password}
-                                        onChange={handleInputChange}
-                                        required
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                        className="absolute right-3 bottom-1 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
-                                    >
-                                        {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                                    </button>
-
-                                </div>
-
-                            </div>
-
-                            {/* Sign Up Button */}
-                            <button
-                                type="submit"
-                                onClick={handleSubmit}
-                                className="group w-full bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold py-3 px-6 rounded-xl hover:from-blue-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-blue-500/25"
-                            >
-                                <span className="flex items-center justify-center">
-                                    Sign Up
-                                    <ChevronRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-                                </span>
-                            </button>
-                        </div>
-                    </div>
-                    <div className="text-center mt-6 pt-6 border-t border-white/10">
-                        <p className="text-gray-400">
-                            Already have an account?{' '}
-                            <a href="/login" className="text-blue-400 hover:text-white font-semibold transition-colors">
-                                Login
-                            </a>
-                        </p>
-                    </div>
-                </div>
-
+      <div className="flex-1 flex items-center justify-center px-4 pt-20 pb-12">
+        <div className="w-full max-w-md animate-slide-up">
+          <div className="glass-card p-8 rounded-2xl shadow-2xl">
+            {/* Header */}
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl mb-4 shadow-lg shadow-emerald-500/20">
+                <UserPlus className="h-6 w-6 text-white" />
+              </div>
+              <h1 className="text-2xl font-bold text-white mb-1">
+                Create Account
+              </h1>
+              <p className="text-gray-400 text-sm">
+                Sign up to join SafeWatch
+              </p>
             </div>
 
-        </div>
-    );
-};
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label
+                  htmlFor="register-username"
+                  className="block text-white text-sm font-medium mb-2"
+                >
+                  Username
+                </label>
+                <input
+                  className="input-dark"
+                  id="register-username"
+                  name="username"
+                  type="text"
+                  placeholder="Choose a username"
+                  value={formData.username}
+                  onChange={handleInputChange}
+                  required
+                  minLength={3}
+                  maxLength={50}
+                  autoComplete="username"
+                />
+              </div>
 
-export default LoginPage;
+              <div>
+                <label
+                  htmlFor="register-password"
+                  className="block text-white text-sm font-medium mb-2"
+                >
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    className="input-dark pr-12"
+                    id="register-password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Create a password (min 6 chars)"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    required
+                    minLength={6}
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="register-confirm-password"
+                  className="block text-white text-sm font-medium mb-2"
+                >
+                  Confirm Password
+                </label>
+                <div className="relative">
+                  <input
+                    className="input-dark pr-12"
+                    id="register-confirm-password"
+                    name="confirm_password"
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="Confirm your password"
+                    value={formData.confirm_password}
+                    onChange={handleInputChange}
+                    required
+                    minLength={6}
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowConfirmPassword(!showConfirmPassword)
+                    }
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="group w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-[1.02] shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30"
+              >
+                <span className="flex items-center justify-center">
+                  {loading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <>
+                      Create Account
+                      <ChevronRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                    </>
+                  )}
+                </span>
+              </button>
+            </form>
+          </div>
+
+          <div className="text-center mt-6 pt-6 border-t border-white/5">
+            <p className="text-gray-500 text-sm">
+              Already have an account?{" "}
+              <Link
+                href="/login"
+                className="text-blue-400 hover:text-blue-300 font-semibold transition-colors"
+              >
+                Sign in
+              </Link>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

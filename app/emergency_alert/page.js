@@ -3,60 +3,73 @@ import React, { useState, useCallback, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 import dynamic from "next/dynamic";
 import "leaflet/dist/leaflet.css";
-import { supabase } from "../../lib/supabaseClient"; // Adjust the path based on your project structure
-import EXIF from "exif-js"; // Import the exif-js library
+import EXIF from "exif-js";
+import Navbar from "@/components/Navbar";
+import { useToast } from "@/components/Toast";
+import {
+  AlertTriangle,
+  Upload,
+  MapPin,
+  ShieldAlert,
+  Loader2,
+  X,
+  Image as ImageIcon,
+} from "lucide-react";
 
 const MapContainer = dynamic(
-  () => import("react-leaflet").then(mod => mod.MapContainer),
+  () => import("react-leaflet").then((mod) => mod.MapContainer),
   { ssr: false }
 );
 const TileLayer = dynamic(
-  () => import("react-leaflet").then(mod => mod.TileLayer),
+  () => import("react-leaflet").then((mod) => mod.TileLayer),
   { ssr: false }
 );
 const Marker = dynamic(
-  () => import("react-leaflet").then(mod => mod.Marker),
+  () => import("react-leaflet").then((mod) => mod.Marker),
   { ssr: false }
 );
 
 const MapEventHandler = dynamic(
-  () => import("react-leaflet").then(mod => {
-    const { useMapEvents } = mod;
-    return function MapClickHandler({ onMapClick }) {
-      useMapEvents({
-        click: onMapClick,
-      });
-      return null;
-    };
-  }),
+  () =>
+    import("react-leaflet").then((mod) => {
+      const { useMapEvents } = mod;
+      return function MapClickHandler({ onMapClick }) {
+        useMapEvents({ click: onMapClick });
+        return null;
+      };
+    }),
   { ssr: false }
 );
 
-export default function ReportCrimePage() {
+const CRIME_TYPES = [
+  "Chain Snatching",
+  "Vandalism",
+  "Pick Pocketing",
+  "Eve Teasing",
+  "Other",
+];
+
+export default function EmergencyAlertPage() {
+  const toast = useToast();
   const [file, setFile] = useState(null);
-  const [location, setLocation] = useState({ lat: 28.6139, lng: 77.209 }); // Default: Delhi
-  const [manual, setManual] = useState(false);
+  const [preview, setPreview] = useState(null);
+  const [location, setLocation] = useState({ lat: 28.6139, lng: 77.209 });
   const [markerIcon, setMarkerIcon] = useState(null);
   const [isClient, setIsClient] = useState(false);
-  const [mapInstance, setMapInstance] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  
   const [form, setForm] = useState({
-    user_id: "", // This should be set from your auth context
     reporter_type: "Victim",
     security_availability: "None",
-    crime_type: "Other", // Defaulting to Other as specific types might not map directly to general crime types in emergency
+    crime_type: "Other",
     description: "",
-    // evidence_url will be derived from the file upload
   });
 
   useEffect(() => {
     setIsClient(true);
-
-    // Dynamically import and setup Leaflet icon
     const setupLeafletIcon = async () => {
       if (typeof window !== "undefined") {
         const L = await import("leaflet");
-
-        // Fix for default markers
         delete L.Icon.Default.prototype._getIconUrl;
         L.Icon.Default.mergeOptions({
           iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.3/images/marker-icon-2x.png",
@@ -64,295 +77,361 @@ export default function ReportCrimePage() {
           shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.3/images/marker-shadow.png",
         });
 
-        const customIcon = new L.Icon({
-          iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.3/images/marker-icon.png",
-          iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.3/images/marker-icon-2x.png",
-          shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.3/images/marker-shadow.png",
-          iconSize: [25, 41],
-          iconAnchor: [12, 41],
-          popupAnchor: [1, -34],
-          shadowSize: [41, 41]
-        });
-
-        setMarkerIcon(customIcon);
+        setMarkerIcon(
+          new L.Icon({
+            iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.3/images/marker-icon.png",
+            iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.3/images/marker-icon-2x.png",
+            shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.3/images/marker-shadow.png",
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41],
+          })
+        );
       }
     };
-
     setupLeafletIcon();
+    
+    // Automatically try to fetch location on load for emergency
+    fetchLocation(true);
   }, []);
 
-  // Drag and drop (single file)
   const onDrop = useCallback((acceptedFiles) => {
     if (acceptedFiles && acceptedFiles.length > 0) {
-      setFile(acceptedFiles[0]);
+      const f = acceptedFiles[0];
+      setFile(f);
+      setPreview({
+        name: f.name,
+        url: URL.createObjectURL(f),
+        type: f.type,
+      });
     }
   }, []);
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
 
-  // Geolocation
-  const fetchLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const newLoc = {
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-          };
-          setLocation(newLoc);
-          if (mapInstance) {
-            mapInstance.setView([newLoc.lat, newLoc.lng], mapInstance.getZoom());
-          }
-        },
-        (error) => {
-          console.error("Geolocation error:", error);
-          let msg = "Unable to fetch location.";
-          if (error.code === 1) {
-            msg += " Permission denied. Please allow location access in your browser.";
-          } else if (error.code === 2) {
-            msg += " Position unavailable. This can happen if your device/browser cannot determine your location. If you are running this on localhost, make sure you are using HTTPS, or try a different browser/device.";
-          } else if (error.code === 3) {
-            msg += " Timeout while fetching location.";
-          }
-          if (error.message) {
-            msg += " (" + error.message + ")";
-          }
-          alert(msg);
-        }
-      );
-    } else {
-      alert("Geolocation is not supported by this browser.");
+  const removeFile = () => {
+    setFile(null);
+    if (preview) {
+      URL.revokeObjectURL(preview.url);
+      setPreview(null);
     }
   };
 
-  // Map click handler
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    multiple: false,
+    accept: { "image/*": [], "video/*": [] },
+  });
+
+  const fetchLocation = (silent = false) => {
+    if (!navigator.geolocation) {
+      if (!silent) toast.error("Geolocation is not supported by this browser.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        if (!silent) toast.success("Location detected successfully");
+      },
+      (error) => {
+        if (!silent) {
+            let msg = "Unable to fetch location.";
+            if (error.code === 1) msg += " Permission denied.";
+            else if (error.code === 2) msg += " Position unavailable.";
+            else if (error.code === 3) msg += " Timeout.";
+            toast.error(msg);
+        }
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
+  };
+
   const handleMapClick = (e) => {
     setLocation({ lat: e.latlng.lat, lng: e.latlng.lng });
-    setManual(false);
   };
 
-  // Manual location change
-  const handleManualChange = (e) => {
-    setLocation({ ...location, [e.target.name]: parseFloat(e.target.value) });
-    setManual(true);
-  };
-
-  // Form change
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
   const fallbackToFileDate = () => {
-    const creationDateObj = new Date(file.lastModified);
-    const currentDate = new Date();
-    const diffDays = (currentDate - creationDateObj) / (1000 * 60 * 60 * 24);
-
+    const diffDays = (new Date() - new Date(file.lastModified)) / (1000 * 60 * 60 * 24);
     if (diffDays > 7) {
-      alert("The uploaded image is more than 7 days old (based on file modified date).");
-      throw "Image too old (fallback)";
+      throw new Error("Image is more than 7 days old");
     }
   };
 
-  // Submit handler
+  const uploadEvidenceFile = async (selectedFile) => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+    const formData = new FormData();
+    formData.append("files", selectedFile);
+
+    const response = await fetch(`${apiUrl}/api/upload-evidence`, {
+      method: "POST",
+      body: formData,
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.detail || "Failed to upload evidence");
+    }
+
+    return result.files?.[0]?.url || null;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSubmitting(true);
 
-    // Retrieve user_id and username directly from localStorage
     const user_id = localStorage.getItem("user_id");
     const user_name = localStorage.getItem("username");
-
-    console.log("Debugging: Retrieved user_id from localStorage:", user_id); // Debugging
-    console.log("Debugging: Retrieved username from localStorage:", user_name); // Debugging
-
-    if (!user_id || !user_name) {
-      alert("You are submitting this report as an unauthenticated user. Your report will not be linked to an account.");
-    }
 
     let evidenceUrl = null;
     if (file) {
       try {
-        // Extract metadata using exif-js
-        const metadata = await new Promise((resolve, reject) => {
-          // console.log(EXIF.getAllTags(this)); // Debugging
+        await new Promise((resolve, reject) => {
+          if (!file.type.match(/image\/(jpeg|tiff)/i)) {
+            try {
+              fallbackToFileDate();
+              return resolve();
+            } catch (err) {
+              return reject(err);
+            }
+          }
           EXIF.getData(file, function () {
             const creationDate = EXIF.getTag(this, "DateTimeOriginal");
             if (!creationDate) {
-              console.warn("No EXIF date, using file modified date...");
               try {
                 fallbackToFileDate();
-                  return resolve();
-              } catch (e) {
-                return reject(e);
+                return resolve();
+              } catch (err) {
+                return reject(err);
               }
             }
-            else {
-              const creationDateObj = new Date(creationDate.replace(/:/g, "-").replace(" ", "T"));
-              const currentDate = new Date();
-              const diffDays = (currentDate - creationDateObj) / (1000 * 60 * 60 * 24);
-
-              if (diffDays > 7) {
-                alert("The uploaded image is more than 7 days old. The report will be discarded.");
-                reject("Image too old");
-              } else {
-                resolve();
-              }
+            const parts = creationDate.split(" ");
+            const datePart = parts[0] ? parts[0].replace(/:/g, "-") : "";
+            const timePart = parts[1] || "";
+            const dateString = timePart ? `${datePart}T${timePart}` : datePart;
+            const dateObj = new Date(dateString);
+            const diffDays = (new Date() - dateObj) / (1000 * 60 * 60 * 24);
+            if (diffDays > 7) {
+              reject(new Error("Image is more than 7 days old."));
+            } else {
+              resolve();
             }
           });
         });
 
-        const { data, error } = await supabase.storage
-          .from("evidence")
-          .upload(`evidence/${Date.now()}_${file.name}`, file);
-
-        if (error) {
-          console.error("Error uploading file:", error);
-          alert("Failed to upload evidence. Please try again.");
-          return;
-        }
-
-        const { data: publicUrlData, error: publicUrlError } = supabase
-          .storage
-          .from("evidence")
-          .getPublicUrl(data.path);
-
-        if (publicUrlError) {
-          console.error("Error getting public URL:", publicUrlError);
-          alert("Failed to get public URL.");
-          return;
-        }
-
-        evidenceUrl = publicUrlData?.publicUrl;
+          evidenceUrl = await uploadEvidenceFile(file);
       } catch (error) {
-        console.error("Error processing image metadata:", error);
+        toast.error(error.message || "Error processing image upload");
+        setSubmitting(false);
         return;
       }
     }
 
-    // Ensure the payload matches the EmergencyReport model
     const emergencyReportData = {
-      user_id, // Retrieved from localStorage or null
-      user_name, // Retrieved from localStorage or null
+      user_id,
+      user_name,
       reporter_type: form.reporter_type,
       security_availability: form.security_availability,
       crime_type: form.crime_type,
-      evidence_url: evidenceUrl, // Optional field
+      evidence_url: evidenceUrl,
       latitude: location.lat,
       longitude: location.lng,
       description: form.description,
     };
 
-    console.log("Debugging: Payload being sent to backend:", emergencyReportData); // Debugging
-
     try {
-      const response = await fetch("http://localhost:5000/api/emergency-report", {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const response = await fetch(`${apiUrl}/api/emergency-report`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(emergencyReportData),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        alert("Emergency report submitted successfully!");
+        toast.success("Emergency report submitted successfully! Authorities have been alerted.");
+        setForm({
+            reporter_type: "Victim",
+            security_availability: "None",
+            crime_type: "Other",
+            description: "",
+        });
+        removeFile();
       } else {
-        alert(`Error: ${data.detail || "Failed to submit report"}`);
+        toast.error(data.detail || "Failed to submit report");
       }
     } catch (error) {
-      console.error("Error submitting report:", error);
-      alert("Failed to submit report. Please try again.");
+      console.error("Error submitting emergency report:", error);
+      toast.error("Failed to submit emergency report. Please call local authorities immediately.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
-    <div className="bg-gradient-to-br from-slate-900 via-cyan-900 to-slate-900 min-h-screen">
-      <div style={{ maxWidth: 800, margin: "40px auto", padding: 36, background: "#fff", borderRadius: 8, boxShadow: "0 2px 8px #0001", color: '#000', fontSize: '1.1rem' }}>
-        <h2 style={{ color: '#000', fontSize: '2rem', marginBottom: 16 }}>Emergency Alert</h2>
-        <form onSubmit={handleSubmit} style={{ fontSize: '1.1rem' }}>
-          {/* Reporter Type */}
-          <div style={{ color: '#000', marginBottom: 18 }}>
-            <h3 style={{ color: '#223388', marginBottom: 8 }}>Report Details</h3>
-            <b>Reporter Type</b><br />
-            <label style={{ color: '#000' }}><input type="radio" name="reporter_type" value="Victim" checked={form.reporter_type === "Victim"} onChange={handleChange} /> Victim</label>
-            <label style={{ marginLeft: 16, color: '#000' }}><input type="radio" name="reporter_type" value="Spectator" checked={form.reporter_type === "Spectator"} onChange={handleChange} /> Spectator</label>
-          </div>
+    <div className="min-h-screen bg-slate-900">
+      <Navbar />
 
-          {/* Security Availability */}
-          <div style={{ color: '#000', marginBottom: 18 }}>
-            <b>Security Availability</b><br />
-            {['None', 'Minimal', 'Normal', 'Excessive'].map(opt => (
-              <label key={opt} style={{ marginRight: 16, color: '#000' }}>
-                <input type="radio" name="security_availability" value={opt} checked={form.security_availability === opt} onChange={handleChange} /> {opt}
-              </label>
-            ))}
+      <div className="max-w-2xl mx-auto px-4 pt-24 pb-12">
+        <div className="animate-pulse-glow rounded-3xl p-1 mb-8">
+          <div className="bg-red-950/80 backdrop-blur-xl border border-red-500/30 rounded-[1.4rem] p-6 text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-red-500 rounded-2xl mb-4 shadow-lg shadow-red-500/40 animate-pulse">
+              <ShieldAlert className="h-8 w-8 text-white" />
+            </div>
+            <h1 className="text-3xl font-bold text-white mb-2">Emergency Alert</h1>
+            <p className="text-red-200 text-sm max-w-md mx-auto">
+              If this is an immediate life-threatening emergency, please also call local emergency services directly.
+            </p>
           </div>
+        </div>
 
-          {/* Crime Type - Keeping this for now based on existing form, might need refinement for emergency types */}
-          <div style={{ color: '#000', marginBottom: 18 }}>
-            <b>Crime Type</b><br />
-             {/* The crime types listed here might need to be adjusted for emergency situations */}
-            {['Chain Snatching', 'Vandalism', 'Pick Pocketing', 'Eve Teasing', 'Other'].map(opt => (
-              <label key={opt} style={{ marginRight: 16, color: '#000' }}>
-                <input type="radio" name="crime_type" value={opt} checked={form.crime_type === opt} onChange={handleChange} /> {opt}
-              </label>
-            ))}
-          </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="glass-card p-6 rounded-2xl">
+            <h2 className="text-lg font-semibold text-white mb-4">Quick Details</h2>
+            
+            <div className="space-y-5">
+              <div>
+                <label className="block text-white/70 text-sm font-medium mb-2">I am a...</label>
+                <div className="flex gap-2">
+                  {["Victim", "Spectator"].map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setForm({ ...form, reporter_type: type })}
+                      className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                        form.reporter_type === type
+                          ? "bg-red-500/20 border border-red-500/40 text-red-300"
+                          : "bg-white/5 border border-white/10 text-white/60"
+                      }`}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          {/* File Upload */}
-          <div style={{ marginTop: 16, color: '#000', marginBottom: 18 }}>
-            <h3 style={{ color: '#223388', marginBottom: 8 }}>Evidence Upload</h3>
-            <b>Upload a File:</b><br />
-            <div {...getRootProps()} style={{ border: '2px dashed #888', padding: 20, borderRadius: 8, background: isDragActive ? '#e0e7ff' : '#f9f9f9', cursor: 'pointer', marginBottom: 8, color: '#000' }}>
-              <input {...getInputProps()} />
-              {isDragActive ? <p style={{ color: '#000' }}>Drop the file here ...</p> : <p style={{ color: '#000' }}>Drag & drop a file here, or click to select</p>}
-              {file && <div style={{ marginTop: 8, color: '#000' }}>Selected: <b>{file.name}</b></div>}
+              <div>
+                <label className="block text-white/70 text-sm font-medium mb-2">Incident Type</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {CRIME_TYPES.map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setForm({ ...form, crime_type: type })}
+                      className={`px-2 py-2 rounded-lg text-xs font-medium transition-all ${
+                        form.crime_type === type
+                          ? "bg-red-500/20 border border-red-500/40 text-red-300"
+                          : "bg-white/5 border border-white/10 text-white/60"
+                      }`}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-white/70 text-sm font-medium mb-2">Description *</label>
+                <textarea
+                  name="description"
+                  value={form.description}
+                  onChange={handleChange}
+                  placeholder="Briefly describe what is happening..."
+                  rows={3}
+                  className="input-dark resize-none focus:border-red-500 focus:ring-red-500/20"
+                  required
+                />
+              </div>
             </div>
           </div>
 
-          {/* Location Picker */}
-          <div style={{ marginTop: 16, color: '#000', marginBottom: 18 }}>
-             <h3 style={{ color: '#223388', marginBottom: 8 }}>Location</h3>
-            <button type="button" onClick={fetchLocation} style={{ marginBottom: 8, color: '#000' }}>Use My Current Location</button>
-            <div style={{ height: 300, marginBottom: 8 }}>
+          <div className="glass-card p-6 rounded-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-white">Location *</h2>
+              <button
+                type="button"
+                onClick={() => fetchLocation(false)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 text-xs font-medium transition-colors"
+              >
+                <MapPin className="h-3.5 w-3.5" />
+                Refresh Location
+              </button>
+            </div>
+            
+            <div className="h-[250px] rounded-xl overflow-hidden border border-white/10 mb-3">
               {isClient && (
                 <MapContainer
                   center={[location.lat, location.lng]}
                   zoom={15}
                   style={{ height: "100%", width: "100%" }}
-                  whenCreated={setMapInstance}
                 >
                   <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                  <Marker position={[location.lat, location.lng]} icon={markerIcon} />
+                  {markerIcon && <Marker position={[location.lat, location.lng]} icon={markerIcon} />}
                   <MapEventHandler onMapClick={handleMapClick} />
                 </MapContainer>
               )}
             </div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', color: '#000' }}>
-              <label style={{ color: '#000' }}>Lat: <input type="number" step="0.0001" name="lat" value={location.lat} onChange={handleManualChange} style={{ width: 110, color: '#000' }} readOnly /></label>
-              <label style={{ color: '#000' }}>Lng: <input type="number" step="0.0001" name="lng" value={location.lng} onChange={handleManualChange} style={{ width: 110, color: '#000' }} readOnly /></label>
-            </div>
-             {/* Added readOnly to lat/lng inputs as they are controlled by map/geolocation */}
+            
+             <p className="text-xs text-white/40 text-center">
+              Coordinates: {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
+            </p>
           </div>
 
-          {/* Description */}
-          <div style={{ marginTop: 16, color: '#000', marginBottom: 18 }}>
-            <h3 style={{ color: '#223388', marginBottom: 8 }}>Emergency Description</h3>
-            <textarea
-              name="description"
-              value={form.description}
-              onChange={handleChange}
-              placeholder="Describe the emergency in detail"
-              rows={4}
-              style={{ width: '100%', borderRadius: 6, border: '1px solid #ccc', padding: 8, color: '#000' }}
-              required
-            />
+          <div className="glass-card p-6 rounded-2xl">
+            <h2 className="text-lg font-semibold text-white mb-4">Evidence (Optional)</h2>
+            
+            {!preview ? (
+                <div
+                  {...getRootProps()}
+                  className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
+                    isDragActive
+                      ? "border-red-500/50 bg-red-500/10"
+                      : "border-white/15 bg-white/5 hover:border-white/25"
+                  }`}
+                >
+                  <input {...getInputProps()} />
+                  <Upload className="h-8 w-8 text-white/30 mx-auto mb-2" />
+                  <p className="text-white/70 text-sm font-medium">Tap to upload photo/video</p>
+                </div>
+            ) : (
+                <div className="relative aspect-video rounded-xl overflow-hidden bg-black border border-white/10">
+                    {preview.type?.startsWith("image/") ? (
+                        <img src={preview.url} alt={preview.name} className="w-full h-full object-contain" />
+                    ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center">
+                            <ImageIcon className="h-12 w-12 text-white/30 mb-2" />
+                            <span className="text-white/50 text-sm">{preview.name}</span>
+                        </div>
+                    )}
+                    <button
+                        type="button"
+                        onClick={removeFile}
+                        className="absolute top-3 right-3 p-2 bg-black/50 hover:bg-red-500 text-white rounded-full transition-colors backdrop-blur-md"
+                    >
+                        <X className="h-4 w-4" />
+                    </button>
+                </div>
+            )}
           </div>
 
-          {/* Buttons */}
-          <div style={{ marginTop: 20, display: 'flex', gap: 12 }}>
-            <button type="submit" style={{ background: '#223388', color: '#fff', border: 0, borderRadius: 4, padding: '8px 18px', fontWeight: 600 }}>Submit Emergency Report</button>
-            <button type="button" style={{ background: '#888', color: '#fff', border: 0, borderRadius: 4, padding: '8px 18px' }} onClick={() => window.history.back()}>Back</button>
-          </div>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white font-bold text-lg transition-all shadow-lg shadow-red-500/30"
+          >
+            {submitting ? (
+              <Loader2 className="h-6 w-6 animate-spin" />
+            ) : (
+              <>
+                <AlertTriangle className="h-6 w-6" />
+                SEND EMERGENCY ALERT
+              </>
+            )}
+          </button>
         </form>
       </div>
     </div>

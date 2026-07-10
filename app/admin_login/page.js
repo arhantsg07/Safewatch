@@ -1,93 +1,118 @@
 "use client";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { ShieldCheck, Lock, Loader2, Home } from "lucide-react";
+import { useToast } from "@/components/Toast";
 
-const AdminLoginPage = () => {
+export default function AdminLogin() {
   const router = useRouter();
-  const [formData, setFormData] = useState({
-    username: "",
-    password: "",
-  });
+  const toast = useToast();
+  const [loading, setLoading] = useState(false);
+  const [credentials, setCredentials] = useState({ username: "", password: "" });
 
-  const handleInputChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+  const handleChange = (e) => {
+    setCredentials({ ...credentials, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
+    setLoading(true);
 
-    // Predefined admin credentials
-    const adminCredentials = {
-      username: "admin",
-      password: "admin123",
-    };
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const response = await fetch(`${apiUrl}/api/admin-signin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(credentials),
+      });
 
-    if (
-      formData.username === adminCredentials.username &&
-      formData.password === adminCredentials.password
-    ) {
-      alert("Admin login successful!");
-      localStorage.setItem("admin_logged_in", true); // Store admin login status
-      router.push("/admin_dashboard"); // Redirect to admin dashboard
-    } else {
-      alert("Invalid admin credentials. Please try again.");
+      if (response.ok) {
+        const data = await response.json();
+        // Simple token just to mark admin session active
+        localStorage.setItem("admin_token", "admin-auth-active");
+        toast.success("Admin access granted.");
+        router.push("/admin_dashboard");
+      } else {
+        toast.error("Invalid administrator credentials.");
+      }
+    } catch (error) {
+      console.error("Admin login error:", error);
+      toast.error("Connection failed. Check server status.");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-cyan-900 to-slate-900">
-      <div className="w-full max-w-md bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl">
-        <h2 className="text-3xl font-bold text-white mb-6 text-center">
-          Admin Login
-        </h2>
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label
-              htmlFor="username"
-              className="block text-white text-sm font-semibold mb-2"
-            >
-              Username
-            </label>
-            <input
-              type="text"
-              id="username"
-              name="username"
-              value={formData.username}
-              onChange={handleInputChange}
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:bg-white/10 transition-all duration-300"
-              required
-            />
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center relative p-4">
+      {/* Background decoration */}
+      <div className="absolute top-0 w-full h-1/2 bg-gradient-to-b from-blue-900/20 to-transparent pointer-events-none" />
+      
+      <Link href="/" className="absolute top-8 left-8 flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
+        <Home className="h-5 w-5" />
+        <span className="text-sm font-medium">Back to Home</span>
+      </Link>
+
+      <div className="w-full max-w-md z-10 animate-slide-up">
+        <div className="bg-slate-900 border border-white/10 rounded-2xl p-8 shadow-2xl relative overflow-hidden">
+          {/* Top accent line */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 to-indigo-600" />
+
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-500/10 rounded-full mb-4">
+              <ShieldCheck className="h-8 w-8 text-blue-500" />
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-2">Admin Portal</h1>
+            <p className="text-gray-400 text-sm">Restricted access area for authorized personnel only.</p>
           </div>
-          <div className="mb-6">
-            <label
-              htmlFor="password"
-              className="block text-white text-sm font-semibold mb-2"
+
+          <form onSubmit={handleLogin} className="space-y-5">
+            <div>
+              <label className="block text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">
+                Administrator Username
+              </label>
+              <input
+                type="text"
+                name="username"
+                value={credentials.username}
+                onChange={handleChange}
+                className="w-full bg-slate-950 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
+                placeholder="Enter admin ID"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">
+                Security Password
+              </label>
+              <input
+                type="password"
+                name="password"
+                value={credentials.password}
+                onChange={handleChange}
+                className="w-full bg-slate-950 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
+                placeholder="Enter secure password"
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold py-3 rounded-lg transition-all mt-6"
             >
-              Password
-            </label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              value={formData.password}
-              onChange={handleInputChange}
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:bg-white/10 transition-all duration-300"
-              required
-            />
-          </div>
-          <button
-            type="submit"
-            className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold py-3 px-6 rounded-xl hover:from-blue-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-blue-500/25"
-          >
-            Login
-          </button>
-        </form>
+              {loading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <>
+                  <Lock className="h-4 w-4" /> Authenticate
+                </>
+              )}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );
-};
-
-export default AdminLoginPage;
+}
