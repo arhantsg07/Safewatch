@@ -14,9 +14,7 @@
   - Law enforcement dashboard to **verify**, **track**, and **manage** reports.
 
 ### 🧠 AI-Powered Media Analysis
-- Uses **OpenCV** for image and video frame analysis.
-- **OCR** extracts text (e.g., license plates, shop signs).
-- **EXIF metadata** validation to flag outdated media (>7 days).
+- Uses Florence-2 model (available on HuggingFace) via transformers to provide evidence analysis and ocr extraction.
 
 ### 🚫 False Complaint Filtering
 - Detects and filters outdated or suspicious uploads using AI and metadata checks.
@@ -38,10 +36,10 @@
 ---
 
 ## 🛠️ Tech Stack
-- **Frontend**: [React.js / HTML/CSS/JS]
-- **Backend**: [Node.js / Flask / Django – specify your choice]
-- **AI & CV**: OpenCV, OCR (Tesseract), EXIF parser
-- **Database**: [MongoDB / PostgreSQL – specify your choice]
+- **Frontend**: [Next.js]
+- **Backend**: [FastAPI]
+- **AI Analysis**: [Florence-2 by Microsoft (through transformers)]
+- **Database**: [PostgreSQL via Supabase]
 - **Geolocation**: HTML5 Geolocation API / Google Maps API
 
 
