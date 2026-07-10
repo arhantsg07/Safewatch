@@ -1,14 +1,15 @@
 import os
 import logging
 import bcrypt
-from io import BytesIO
-from uuid import uuid4
-from fastapi import FastAPI, HTTPException, Header, File, UploadFile
+from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, ConfigDict
 from supabase import create_client, Client
+import uuid
 from typing import Optional, List
 from dotenv import load_dotenv
+import jwt
+from datetime import datetime, timedelta
 
 # Load environment variables
 load_dotenv()
@@ -17,17 +18,18 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-SUPABASE_URL = os.environ["SUPABASE_URL"]
-SUPABASE_SECRET_KEY = os.environ["SUPABASE_SECRET_KEY"]
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
+
 try:
-    supabase: Client = create_client(SUPABASE_URL, SUPABASE_SECRET_KEY)
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
     logger.info("Connection to Supabase successful!")
 except Exception as e:
     logger.error(f"Error connecting to Supabase: {e}")
 
 app = FastAPI(title="SafeWatch API")
 
-cors_origins = os.environ["CORS_ORIGINS"].split(",")
+cors_origins = os.getenv("CORS_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
@@ -114,10 +116,6 @@ def verify_password(stored_password: str, provided_password: str) -> bool:
         return False
 
 
-def build_public_storage_url(bucket: str, object_path: str) -> str:
-    return f"{SUPABASE_URL.rstrip('/')}/storage/v1/object/public/{bucket}/{object_path}"
-
-
 # --- Routes ---
 
 @app.get("/")
@@ -125,15 +123,35 @@ async def root_route():
     return {"message": "SafeWatch API Server running", "status": "ok"}
 
 
+JWT_SECRET = os.getenv("JWT_SECRET", "super-secret-key-change-in-production")
+JWT_ALGORITHM = "HS256"
+ADMIN_TOKEN_EXPIRE_MINUTES = 60 * 24 # 24 hours
+
 @app.post("/api/admin-signin")
 async def admin_signin(data: AdminLogin):
-    expected_username = os.getenv("ADMIN_USERNAME", "admin")
-    expected_password = os.getenv("ADMIN_PASSWORD", "admin123")
-    
-    if data.username == expected_username and data.password == expected_password:
-        return {"message": "Admin access granted", "token": "admin-auth-active"}
-    
-    raise HTTPException(status_code=401, detail="Invalid administrator credentials")
+    try:
+        # Check against database
+        admin_response = supabase.table('admins').select('*').eq('username', data.username).execute()
+        
+        if not admin_response.data:
+            raise HTTPException(status_code=401, detail="Invalid administrator credentials")
+        
+        admin = admin_response.data[0]
+        if verify_password(admin['password'], data.password):
+            # Generate JWT
+            expire = datetime.utcnow() + timedelta(minutes=ADMIN_TOKEN_EXPIRE_MINUTES)
+            to_encode = {"sub": admin['username'], "role": "admin", "exp": expire}
+            encoded_jwt = jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
+            
+            return {"message": "Admin access granted", "token": encoded_jwt}
+        else:
+            raise HTTPException(status_code=401, detail="Invalid administrator credentials")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error during admin login: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.post("/api/signup")
@@ -218,65 +236,6 @@ async def create_emergency_report(report: EmergencyReport):
     except Exception as e:
         logger.error(f"Error submitting emergency report: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
-
-
-@app.post("/api/upload-evidence")
-async def upload_evidence(files: List[UploadFile] = File(...)):
-    if not files:
-        raise HTTPException(status_code=400, detail="No files were provided")
-
-    uploaded_paths: List[str] = []
-    uploaded_files = []
-
-    try:
-        for file in files:
-            if file.content_type and not file.content_type.startswith(("image/", "video/")):
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Unsupported file type: {file.content_type}",
-                )
-
-            content = await file.read()
-            if not content:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Uploaded file is empty: {file.filename or 'unknown'}",
-                )
-
-            safe_name = os.path.basename(file.filename or "evidence").replace(" ", "_")
-            object_path = f"{uuid4().hex}_{safe_name}"
-
-            supabase.storage.from_("evidence").upload(
-                object_path,
-                content,
-                file_options={"content-type": file.content_type or "application/octet-stream"},
-            )
-
-            uploaded_paths.append(object_path)
-            uploaded_files.append(
-                {
-                    "name": file.filename,
-                    "path": object_path,
-                    "url": build_public_storage_url("evidence", object_path),
-                }
-            )
-
-        return {"message": "Evidence uploaded successfully", "files": uploaded_files}
-    except HTTPException:
-        if uploaded_paths:
-            try:
-                supabase.storage.from_("evidence").remove(uploaded_paths)
-            except Exception as cleanup_error:
-                logger.warning(f"Evidence cleanup failed: {cleanup_error}")
-        raise
-    except Exception as e:
-        logger.error(f"Error uploading evidence: {e}")
-        if uploaded_paths:
-            try:
-                supabase.storage.from_("evidence").remove(uploaded_paths)
-            except Exception as cleanup_error:
-                logger.warning(f"Evidence cleanup failed: {cleanup_error}")
-        raise HTTPException(status_code=500, detail="Failed to upload evidence")
 
 
 @app.post("/api/normal-report")

@@ -29,8 +29,9 @@ export default function AdminLogin() {
 
       if (response.ok) {
         const data = await response.json();
-        // Simple token just to mark admin session active
-        localStorage.setItem("admin_token", "admin-auth-active");
+        // Set JWT token in cookie for middleware to read
+        document.cookie = `admin_token=${data.token}; path=/;`;
+        
         toast.success("Admin access granted.");
         router.push("/admin_dashboard");
       } else {

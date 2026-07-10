@@ -36,14 +36,8 @@ export default function AdminDashboard() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
-  const [analyzing, setAnalyzing] = useState({});
 
   useEffect(() => {
-    // Check auth
-    if (!localStorage.getItem("admin_token")) {
-      router.replace("/admin_login");
-      return;
-    }
     fetchData();
   }, []);
 
@@ -115,30 +109,9 @@ export default function AdminDashboard() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("admin_token");
+    document.cookie = "admin_token=; path=/; max-age=0;";
     toast.info("Logged out successfully");
     router.push("/admin_login");
-  };
-
-  const handleAnalyze = async (id, category) => {
-    setAnalyzing((prev) => ({ ...prev, [id]: true }));
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_MODEL_API_URL || "http://localhost:8080";
-      const response = await fetch(`${apiUrl}/api/crime_report/${id}/analysis?category=${category}`, {
-        method: "GET"
-      });
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.detail || "Analysis failed");
-      }
-      toast.success("Analysis complete!");
-      fetchData();
-    } catch (error) {
-      console.error("Analysis error:", error);
-      toast.error(error.message || "Failed to analyze image.");
-    } finally {
-      setAnalyzing((prev) => ({ ...prev, [id]: false }));
-    }
   };
 
   const filteredComplaints = complaints
@@ -315,17 +288,7 @@ export default function AdminDashboard() {
                                       </p>
                                     </div>
                                  ) : c.evidence_files?.length > 0 || c.evidence_url ? (
-                                     <div className="flex flex-col gap-2 items-start">
-                                       <span className="text-xs text-yellow-500/70 italic border border-yellow-500/20 px-2 py-1 rounded bg-yellow-500/5">Analysis Pending</span>
-                                       <button 
-                                         onClick={() => handleAnalyze(c.id, c.report_category)}
-                                         disabled={analyzing[c.id]}
-                                         className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
-                                       >
-                                         {analyzing[c.id] ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bot className="h-3 w-3" />}
-                                         Analyze Image
-                                       </button>
-                                     </div>
+                                     <span className="text-xs text-yellow-500/70 italic border border-yellow-500/20 px-2 py-1 rounded bg-yellow-500/5">Analysis Pending</span>
                                  ) : (
                                      <span className="text-xs text-gray-600 italic">No visual evidence provided</span>
                                  )}
