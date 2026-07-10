@@ -12,9 +12,13 @@ export function middleware(request) {
     }
   }
 
-  // Next.js middleware runs on the server, so we can't reliably read localStorage for the admin_token here.
-  // The actual admin protection is handled client-side in the admin_dashboard/page.js useEffect hook.
-  // This is acceptable for a Next.js App Router app without a dedicated server-side session backend.
+  // Protect Admin Dashboard
+  if (path.startsWith("/admin_dashboard")) {
+    const adminToken = request.cookies.get("admin_token")?.value;
+    if (!adminToken) {
+      return NextResponse.redirect(new URL("/admin_login", request.url));
+    }
+  }
 
   return NextResponse.next();
 }
